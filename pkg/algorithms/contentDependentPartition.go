@@ -5,6 +5,7 @@ import "fmt"
 // stringToHashContent converts string into an array of content hash values with the rolling hash algorithm and
 // returns error if fails in anyway.
 // TODO: turn string into *string
+// TODO: Use threads to fill up content hashes
 func stringToHashContent(s string, rollingWinSize, hashSpace int) (*[]uint64, error) {
 	if rollingWinSize < 1 {
 		return nil, fmt.Errorf("rolling window size should be one or bigger")
