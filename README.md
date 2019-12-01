@@ -12,7 +12,7 @@ If you use this work, please cite any relevant papers below.
 
 [1] B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling"
       57th Annual Allerton Conference on Communication, Control, and Computing, 2019 
-      [arXiv](https://arxiv.org/abs/1910.00536)  
+      [(Allerton)](https://proceedings.allerton.csl.illinois.edu/media/files/0073.pdf)  
  
 [2] Y. Minsky, A. Trachtenberg, and R. Zippel,
      "Set Reconciliation with Nearly Optimal Communication Complexity",
