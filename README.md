@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/String-Reconciliation-Ditributed-System/RCDS_GO)](https://goreportcard.com/report/github.com/String-Reconciliation-Ditributed-System/RCDS_GO)
+
 # Recursive Content-Dependent Shingling (RCDS)
 The RCDS [1] is a scalable string reconciliation protocol that is best used in distributed systems. This GO 
 implementation relies on the implementation of [cpisync](https://github.com/trachten/cpisync) project. The RCDS 
