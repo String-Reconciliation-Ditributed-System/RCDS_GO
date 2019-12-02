@@ -11,7 +11,7 @@ on:
 jobs:
 
   build:
-    name: Build
+    name: build-unit-tests
     runs-on: ubuntu-latest
     steps:
 
@@ -31,5 +31,5 @@ jobs:
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
         fi
-    - name: Build
+    - name: unit-test
       run: make unit-test
