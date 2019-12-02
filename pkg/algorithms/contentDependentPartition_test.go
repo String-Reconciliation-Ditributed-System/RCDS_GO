@@ -50,6 +50,34 @@ func TestContentDependentChunking(t *testing.T) {
 			hs:             2,
 			expectingError: true,
 		},
+		{
+			s:              "abcd",
+			h:              1,
+			r:              2,
+			hs:             2,
+			expectingError: false,
+		},
+		{
+			s:              "abcde",
+			h:              1,
+			r:              2,
+			hs:             2,
+			expectingError: false,
+		},
+		{
+			s:              "abcdef",
+			h:              2,
+			r:              2,
+			hs:             2,
+			expectingError: false,
+		},
+		{
+			s:              "abc",
+			h:              3,
+			r:              2,
+			hs:             2,
+			expectingError: false,
+		},
 	}
 
 	for _, in := range inputs {
