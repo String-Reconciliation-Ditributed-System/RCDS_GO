@@ -13,7 +13,7 @@ func TestStringToHashContent(t *testing.T) {
 	assert.Equal(t, 12, len(*strVal))
 
 	singleChar := "i"
-	strVal, err = stringToHashContent(singleChar, 1, 16)
+	_, err = stringToHashContent(singleChar, 1, 16)
 	assert.NoError(t, err)
 
 	emptyString := ""
