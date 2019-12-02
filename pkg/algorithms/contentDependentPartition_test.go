@@ -20,3 +20,46 @@ func TestStringToHashContent(t *testing.T) {
 	_, err = stringToHashContent(emptyString, 3, 16)
 	assert.Error(t, err)
 }
+
+func TestContentDependentChunking(t *testing.T) {
+	inputs := []struct {
+		s              string
+		h              int
+		r              int
+		hs             int
+		expectingError bool
+	}{
+		{
+			s:              "iHeart Victoria",
+			h:              2,
+			r:              3,
+			hs:             16,
+			expectingError: false,
+		},
+		{
+			s:              "abc",
+			h:              1,
+			r:              3,
+			hs:             3,
+			expectingError: false,
+		},
+		{
+			s:              "",
+			h:              2,
+			r:              2,
+			hs:             2,
+			expectingError: true,
+		},
+	}
+
+	for _, in := range inputs {
+		chunks, err := contentDependentChunking(in.s, in.h, in.r, in.hs)
+		if in.expectingError {
+			assert.Error(t, err, "expect error from input: %v", in)
+			assert.Empty(t, chunks)
+		} else {
+			assert.NoError(t, err)
+			assert.NotEmpty(t, chunks, "expect valid output from %v", in)
+		}
+	}
+}
