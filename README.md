@@ -7,7 +7,7 @@ breaks a file (string) into a set of data and relies on any set reconciliation p
 CPI [3], and IBLT [4].) to reconcile the data and reconstruct the data back to a file. 
 
 This implementation is a remote file synchronization utility. An existing C++ implementation is available, however, not 
-well maintained on [forked cpisync](https://github.com/trachten/cpisync). 
+well maintained on [forked cpisync](https://github.com/Bowenislandsong/cpisync). 
 
 ## Reference:
 If you use this work, please cite any relevant papers below.
