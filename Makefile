@@ -10,4 +10,4 @@ build:
 
 .PHONY: unit-test
 unit-test:
-	$(GO_BUILD_ARGS) go test ./pkg/...
+	$(GO_BUILD_ARGS) go test ./pkg/... -v

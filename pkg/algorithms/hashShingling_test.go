@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestAddToHashShingleSet is a sequential test that adds shingles to local shingle set.
+// TestAddToHashShingleSet is a sequential test that adds shingles to the local shingle set.
 func TestAddToHashShingleSet(t *testing.T) {
 	// Add different shingles and see they are added to the local shingle set.
 	localHashShingleSet.addToHashShingleSet(&hashShingleSet{hashShingle{first: 1, second: 2}: 2})
@@ -24,6 +25,27 @@ func TestAddToHashShingleSet(t *testing.T) {
 	localHashShingleSet.addToHashShingleSet(&hashShingleSet{hashShingle{first: 2, second: 4}: 9})
 	localHashShingleSet.addToHashShingleSet(&hashShingleSet{hashShingle{first: 2, second: 4}: 2})
 	assert.Equal(t, 9, int(localHashShingleSet[hashShingle{first: 2, second: 4}]))
+}
+
+// TestRemoveFromHashShingleSet is a sequential test that removes shingles from the local shingle set.
+func TestRemoveFromHashShingleSet(t *testing.T) {
+	localHashShingleSet.addToHashShingleSet(&hashShingleSet{hashShingle{first: 3, second: 2}: 1})
+	err := localHashShingleSet.removeFromHashShingleSet(&hashShingleSet{hashShingle{first: 3, second: 2}: 1})
+	assert.NoError(t, err)
+
+	// Test function throwing error if removing shingle does not exist.
+	nonExistingShingle := hashShingleSet{hashShingle{first: 400, second: 400}: 400}
+	_, isExist := localHashShingleSet[hashShingle{first: 400, second: 400}]
+	require.False(t, isExist)
+	err = localHashShingleSet.removeFromHashShingleSet(&nonExistingShingle)
+	assert.Error(t, err)
+
+	// Test function throwing error if removing shingle has different count.
+	localHashShingleSet[hashShingle{first: 400, second: 400}] = 300
+	count := localHashShingleSet[hashShingle{first: 400, second: 400}]
+	require.Equal(t, 300, int(count))
+	err = localHashShingleSet.removeFromHashShingleSet(&nonExistingShingle)
+	assert.Error(t, err)
 }
 
 func TestConvertChunksToShingleSet(t *testing.T) {

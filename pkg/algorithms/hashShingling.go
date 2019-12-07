@@ -37,6 +37,22 @@ func (set *hashShingleSet) addToHashShingleSet(shingleSet *hashShingleSet) *hash
 	return shingleSet
 }
 
+// removeFromHashShingleSet removes shingles from the local shingle set. It returns error if the shingle does not exist
+// or the shingle count is different.
+func (set *hashShingleSet) removeFromHashShingleSet(shingleSet *hashShingleSet) error {
+	for shingle, count := range *shingleSet {
+		val, isExist := localHashShingleSet[shingle]
+		if isExist && count == val {
+			delete(localHashShingleSet, shingle)
+		} else if !isExist {
+			return fmt.Errorf("shingle does not exist")
+		} else if isExist && count != val {
+			return fmt.Errorf("shingle count is different, original count %d and delete shingle count %d", val, count)
+		}
+	}
+	return nil
+}
+
 // convertChunksToShingleSet converts an array of substrings to a set of shingles.
 // This conversion creates a shingle set of one array of substrings and should be merged into the local shingle set.
 func convertChunksToShingleSet(chunks *[]string) (*hashShingleSet, error) {
