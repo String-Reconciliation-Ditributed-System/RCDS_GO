@@ -13,9 +13,8 @@ var log = logger.Log.WithName("algorithm")
 
 // stringToHashContent converts string into an array of content hash values with the rolling hash algorithm and
 // returns error if fails in anyway.
-// TODO: turn string into *string
 // TODO: Use threads to fill up content hashes
-func stringToHashContent(s string, rollingWinSize, hashSpace int) (*[]uint64, error) {
+func stringToHashContent(s *string, rollingWinSize, hashSpace int) (*[]uint64, error) {
 	if rollingWinSize < 1 {
 		return nil, fmt.Errorf("rolling window size should be one or bigger")
 	}
@@ -23,14 +22,14 @@ func stringToHashContent(s string, rollingWinSize, hashSpace int) (*[]uint64, er
 		return nil, fmt.Errorf("hash space should be a non-negative value")
 	}
 
-	contentHashSize := len(s) - rollingWinSize + 1
+	contentHashSize := len(*s) - rollingWinSize + 1
 	if contentHashSize < 1 {
 		return nil, fmt.Errorf("rolling windows size is bigger than string input")
 	}
 	contentHash := make([]uint64, contentHashSize)
 
 	for i := 0; i < contentHashSize; i++ {
-		hash, err := stringTo64Hash(s[i : i+rollingWinSize])
+		hash, err := stringTo64Hash((*s)[i : i+rollingWinSize])
 		if err != nil {
 			return nil, err
 		}
@@ -43,23 +42,23 @@ func stringToHashContent(s string, rollingWinSize, hashSpace int) (*[]uint64, er
 // This uses Local minimum chunking. It looks h distances forward and backwards and partition if the middle element is
 // the local minimum. It uses stringToHashContent to convert the string into an array of hashes r as rolling windows size
 // and hs as hash space.
-func contentDependentChunking(s string, h, r, hs int) (chunks []string, err error) {
+func contentDependentChunking(s *string, h, r, hs int) (chunks []string, err error) {
 	// Sanity check for string and inter-partition distance.
-	if len(s) == 0 {
+	if len(*s) == 0 {
 		return chunks, fmt.Errorf("empty input string")
 	}
 	if h < 0 {
 		return chunks, fmt.Errorf("inter-partition distance has to be non-negative, current h=%d", h)
 	}
 	// Check if string is at least 2*h+r.
-	if len(s) < 2*h+r {
-		return append(chunks, s), nil
+	if len(*s) < 2*h+r {
+		return append(chunks, *s), nil
 	}
 
 	// Convert string into an array of hashes.
 	hArr, err := stringToHashContent(s, r, hs)
 	if err != nil {
-		log.V(2).Info(fmt.Sprintf("failed to convert string to hash array: '%s'", s))
+		log.V(2).Info(fmt.Sprintf("failed to convert string to hash array: '%s'", *s))
 		return nil, fmt.Errorf("error converting string into an hash array, %v", err)
 	}
 
@@ -78,11 +77,11 @@ func contentDependentChunking(s string, h, r, hs int) (chunks []string, err erro
 		// If the middle element is a local minimum and it has been h distance since the last partition,
 		// partition at i and move the last partition idx
 		if i-parIdx > h && rbt.Left().Key == (*hArr)[i] {
-			chunks = append(chunks, s[parIdx:i])
+			chunks = append(chunks, (*s)[parIdx:i])
 			parIdx = i
 		}
 		// kick the last leftest element out of the window.
 		rbt.Remove((*hArr)[i-h])
 	}
-	return append(chunks, s[parIdx:]), nil
+	return append(chunks, (*s)[parIdx:]), nil
 }

@@ -8,16 +8,16 @@ import (
 
 func TestStringToHashContent(t *testing.T) {
 	tmpStr := "iHeartVictoria"
-	strVal, err := stringToHashContent(tmpStr, 3, 16)
+	strVal, err := stringToHashContent(&tmpStr, 3, 16)
 	assert.NoError(t, err)
 	assert.Equal(t, 12, len(*strVal))
 
 	singleChar := "i"
-	_, err = stringToHashContent(singleChar, 1, 16)
+	_, err = stringToHashContent(&singleChar, 1, 16)
 	assert.NoError(t, err)
 
 	emptyString := ""
-	_, err = stringToHashContent(emptyString, 3, 16)
+	_, err = stringToHashContent(&emptyString, 3, 16)
 	assert.Error(t, err)
 }
 
@@ -81,7 +81,7 @@ func TestContentDependentChunking(t *testing.T) {
 	}
 
 	for _, in := range inputs {
-		chunks, err := contentDependentChunking(in.s, in.h, in.r, in.hs)
+		chunks, err := contentDependentChunking(&in.s, in.h, in.r, in.hs)
 		if in.expectingError {
 			assert.Error(t, err, "expect error from input: %v", in)
 			assert.Empty(t, chunks)

@@ -22,10 +22,10 @@ func TestAddToDict(t *testing.T) {
 	// Test Hash Collision
 	s := "abced"
 	sFail := "failed"
-	hash, err := stringTo64Hash(s)
+	_, err := stringTo64Hash(s)
 	require.NoError(t, err, "failed to convert string to hash")
 
-	hash, err = dict.addToDict(s)
+	hash, err := dict.addToDict(s)
 	dict[hash] = sFail
 	assert.NoError(t, err, "dictionary added a collision")
 }
