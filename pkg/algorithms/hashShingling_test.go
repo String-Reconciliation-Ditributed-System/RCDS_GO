@@ -98,3 +98,37 @@ func TestConvertChunksToShingleSet(t *testing.T) {
 	count := (*shingleSet)[hashShingle{hash, hash}]
 	assert.Equal(t, 2, int(count))
 }
+
+// TestShingleCount tests the getter, setter, and adder for the shingle count.
+func TestShingleCount(t *testing.T) {
+	testShingle := hashShingle{123, 234}
+	testSet := hashShingleSet{testShingle: 1}
+
+	val, err := testSet.getShingleCount(testShingle)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, val)
+
+	val, err = testSet.addShingleCount(testShingle, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, val)
+	assertShingleCount(t, testSet, testShingle, 2)
+
+	val, err = testSet.addShingleCount(testShingle, -2)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, val)
+	assertShingleCount(t, testSet, testShingle, 0)
+
+	val, err = testSet.addShingleCount(testShingle, -1)
+	assert.Error(t, err)
+	assertShingleCount(t, testSet, testShingle, 0)
+
+	err = testSet.setShingleCount(testShingle, 1)
+	assert.NoError(t, err)
+	assertShingleCount(t, testSet, testShingle, 1)
+}
+
+func assertShingleCount(t *testing.T, set hashShingleSet, shingle hashShingle, expectedCount int) {
+	val, err := set.getShingleCount(shingle)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedCount, val)
+}
