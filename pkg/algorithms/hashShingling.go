@@ -5,121 +5,178 @@ import (
 	"math"
 )
 
-// We use 2-shingle method because backtracking is efficient enough for constant number of shingles.
-type hashShingle struct {
-	first  uint64
-	second uint64
-}
+// We use 2-shingle method because backtracking is efficient enough for constant number of shingles. The local shingle
+// store is a double map -> map [shingle head] map [shingle tail] count.
+type shingleTailCount map[uint64]uint16
 
 // shingle sets are defined by hash shingles and their count within the set.
-type hashShingleSet map[hashShingle]uint16
+type hashShingleSet map[uint64]*shingleTailCount
 
 // localHashShingleSet stores all hash shingles of the partition tree.
 var localHashShingleSet = make(hashShingleSet)
 
-// addChunksToHashShingleSet adds hash shingles to the local set of hash shingles from an array of chunks.
-func (set *hashShingleSet) addChunksToHashShingleSet(chunks *[]string) (*hashShingleSet, error) {
-	shingleSet, err := convertChunksToShingleSet(chunks)
-	if err != nil {
-		return nil, fmt.Errorf("error converting string chunks into hash shingles, %v", err)
+// AddShingle adds a shingle to a shingle set.
+// Duplicated shingles should have the max count.
+func (set *hashShingleSet) AddShingle(first, second uint64, count uint16) {
+	shingleTail, firstExist := (*set)[first]
+	if firstExist && shingleTail != nil {
+		val, secondExist := (*shingleTail)[second]
+		if !secondExist || secondExist && count > val {
+			(*shingleTail)[second] = count
+		}
+	} else {
+		(*set)[first] = &shingleTailCount{second: count}
 	}
-
-	localHashShingleSet.addToHashShingleSet(shingleSet)
-	return shingleSet, nil
 }
 
-// addToHashShingleSet adds a hash shingle set to the local set of hash shingles.
-// Duplicated shingles should be replaced by the max count.
-func (set *hashShingleSet) addToHashShingleSet(shingleSet *hashShingleSet) *hashShingleSet {
-	for shingle, count := range *shingleSet {
-		val, isExist := (*set)[shingle]
-		if !isExist || isExist && count > val {
-			(*set)[shingle] = count
+func (set *hashShingleSet) RemoveShingle(first, second uint64) {
+	firstRef, refExist := (*set)[first]
+	if refExist && firstRef != nil {
+		delete(*firstRef, second)
+		if len(*firstRef) == 0 {
+			delete(*set, first)
 		}
 	}
-	return shingleSet
 }
 
-// removeFromHashShingleSet removes shingles from the local shingle set. It returns error if the shingle does not exist
-// or the shingle count is different.
-func (set *hashShingleSet) removeFromHashShingleSet(shingleSet *hashShingleSet) error {
-	for shingle, count := range *shingleSet {
-		val, isExist := (*set)[shingle]
-		if isExist && count == val {
-			delete(*set, shingle)
-		} else if !isExist {
-			return fmt.Errorf("shingle does not exist")
-		} else if isExist && count != val {
-			return fmt.Errorf("shingle count is different, original count %d and delete shingle count %d", val, count)
+func (set *hashShingleSet) RemoveSpecShingle(first, second uint64, count uint16) error {
+	firstRef, refExist := (*set)[first]
+	if refExist && firstRef != nil {
+		if val, isExist := (*firstRef)[second]; isExist && val == count {
+			delete(*firstRef, second)
+			if len(*firstRef) == 0 {
+				delete(*set, first)
+			}
+			return nil
 		}
 	}
-	return nil
-}
-
-// getShingleCount gets the shingle count from the local shingle set adn returns error if the shingle is not found.
-func (set *hashShingleSet) getShingleCount(shingle hashShingle) (int, error) {
-	val, isExist := (*set)[shingle]
-	if !isExist {
-		return 0, fmt.Errorf("shingle not found")
-	}
-	return int(val), nil
-}
-
-// setShingleCount sets the shingle count to a number. The number has to be positive and less than max.
-func (set *hashShingleSet) setShingleCount(shingle hashShingle, count int) error {
-	if count < 0 {
-		return fmt.Errorf("shingle count can not be set to %d, a negative number", count)
-	}
-	if _, isExist := (*set)[shingle]; !isExist {
-		return fmt.Errorf("shingle not found")
-	}
-	if count > math.MaxInt16 {
-		return fmt.Errorf("shingle count can not be set to %d, a number bigger than %d", count, math.MaxUint16)
-	}
-	(*set)[shingle] = uint16(count)
-	return nil
-}
-
-// addShingleCount adds a number to shingle count. It can be a negative number but the result count should be a
-// positive number.
-func (set *hashShingleSet) addShingleCount(shingle hashShingle, count int) (int, error) {
-	val, isExist := (*set)[shingle]
-	resCount := int(val) + count
-	if !isExist {
-		return 0, fmt.Errorf("shingle not found")
-	} else if resCount < 0 {
-		return 0, fmt.Errorf("shingle count can not be %d, a negative number", resCount)
-	}
-	(*set)[shingle] = uint16(resCount)
-	return resCount, nil
+	return fmt.Errorf("specific shingle %d : %d with count %d not found", first, second, count)
 }
 
 // convertChunksToShingleSet converts an array of substrings to a set of shingles.
 // This conversion creates a shingle set of one array of substrings and should be merged into the local shingle set.
-func convertChunksToShingleSet(chunks *[]string) (*hashShingleSet, error) {
-	var h hashShingle
-	shingleSet := make(hashShingleSet, len(*chunks))
-
+func (set *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*dictionary, error) {
 	if len(*chunks) == 0 {
 		return nil, fmt.Errorf("input array of strings is empty")
 	}
+
+	dict := make(dictionary, len(*chunks))
 
 	hash, err := dict.addToDict((*chunks)[0])
 	if err != nil {
 		return nil, err
 	}
-	shingleSet[hashShingle{first: 0, second: hash}] = 1
+	set.AddShingle(0, hash, 1)
 
 	for i := 1; i < len(*chunks); i++ {
-		h.first, err = dict.addToDict((*chunks)[i-1])
+		first, err := dict.addToDict((*chunks)[i-1])
 		if err != nil {
 			return nil, err
 		}
-		h.second, err = dict.addToDict((*chunks)[i])
+		second, err := dict.addToDict((*chunks)[i])
 		if err != nil {
 			return nil, err
 		}
-		shingleSet[h]++
+		if _, err = set.getShingleCount(first, second); err != nil {
+			set.AddShingle(first, second, 1)
+		} else {
+			if _, err = set.addShingleCount(first, second, 1); err != nil {
+				return nil, err
+			}
+		}
 	}
-	return &shingleSet, nil
+	return &dict, nil
+}
+
+// addToHashShingleSet adds a hash shingle set to the local set of hash shingles.
+func (set *hashShingleSet) addToHashShingleSet(shingleSet *hashShingleSet) {
+	for first, tailMap := range *shingleSet {
+		for second, count := range *tailMap {
+			set.AddShingle(first, second, count)
+		}
+	}
+}
+
+// removeFromHashShingleSet removes shingles from the local shingle set. It returns error if the shingle does not exist
+// or the shingle count is different.
+func (set *hashShingleSet) removeFromHashShingleSet(shingleSet *hashShingleSet) error {
+	for first, tailMap := range *shingleSet {
+		for second, count := range *tailMap {
+			if err := set.RemoveSpecShingle(first, second, count); err != nil {
+				return fmt.Errorf("error removing shingle from set, %v", err)
+			}
+		}
+	}
+	return nil
+}
+
+// getShingleCount gets the shingle count from the local shingle set and returns error if the shingle is not found.
+func (set *hashShingleSet) getShingleCount(first, second uint64) (uint16, error) {
+	firstRef, refExist := (*set)[first]
+	if refExist && firstRef != nil {
+		if val, isExist := (*firstRef)[second]; isExist {
+			return val, nil
+		}
+	}
+	return 0, fmt.Errorf("shingle not found")
+}
+
+// Exist checks if a shingle exist in a set regardless of its count.
+func (set *hashShingleSet) Exist(first, second uint64) bool {
+	if firstRef, refExist := (*set)[first]; refExist && firstRef != nil {
+		if _, isExist := (*firstRef)[second]; isExist {
+			return true
+		}
+	}
+	return false
+}
+
+// Clear deletes all shingles within the set.
+func (set *hashShingleSet) Clear() {
+	for first, tail := range *set {
+		for second := range *tail {
+			delete(*tail, second)
+		}
+		delete(*set, first)
+	}
+}
+
+// Size gets the size of the shingle set including every unique shingles.
+func (set *hashShingleSet) Size() int {
+	size := 0
+	for _, tail := range *set {
+		size += len(*tail)
+	}
+	return size
+}
+
+// setShingleCount sets the shingle count to a number. The number has to be positive and less than max.
+func (set *hashShingleSet) setShingleCount(first, second uint64, count uint16) error {
+	shingleTail, firstExist := (*set)[first]
+	if firstExist && shingleTail != nil {
+		_, secondExist := (*shingleTail)[second]
+		if secondExist {
+			(*shingleTail)[second] = count
+			return nil
+		}
+	}
+	return fmt.Errorf("shingle %d : %d does not exist", first, second)
+}
+
+// addShingleCount adds a number to shingle count. It can be a negative number but the result count should be a
+// positive number.
+func (set *hashShingleSet) addShingleCount(first, second uint64, val int) (uint16, error) {
+	shingleTail, firstExist := (*set)[first]
+	if firstExist && shingleTail != nil {
+		count, secondExist := (*shingleTail)[second]
+		if secondExist {
+			if finalCount := int(count) + val; finalCount < math.MaxUint16 && finalCount >= 0 {
+				(*shingleTail)[second] = uint16(finalCount)
+				return uint16(finalCount), nil
+			} else {
+				return 0, fmt.Errorf("resulting shingle count %d from %d + %d is not valid", finalCount, count, val)
+			}
+		}
+	}
+	return 0, fmt.Errorf("shingle %d : %d does not exist", first, second)
 }

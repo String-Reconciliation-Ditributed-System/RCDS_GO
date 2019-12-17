@@ -8,6 +8,7 @@ import (
 )
 
 func TestAddToDict(t *testing.T) {
+	testDict := make(dictionary)
 	// Test that it can add the same string exist in the dictionary.
 	inputs := []string{
 		"abc",
@@ -15,7 +16,7 @@ func TestAddToDict(t *testing.T) {
 		"abc",
 	}
 	for _, in := range inputs {
-		_, err := dict.addToDict(in)
+		_, err := testDict.addToDict(in)
 		assert.NoError(t, err)
 	}
 
@@ -25,18 +26,19 @@ func TestAddToDict(t *testing.T) {
 	_, err := stringTo64Hash(s)
 	require.NoError(t, err, "failed to convert string to hash")
 
-	hash, err := dict.addToDict(s)
-	dict[hash] = sFail
+	hash, err := testDict.addToDict(s)
+	testDict[hash] = sFail
 	assert.NoError(t, err, "dictionary added a collision")
 }
 
 func TestLookupDict(t *testing.T) {
+	testDict := make(dictionary)
 	t.Run("Dictionary lookup", func(t *testing.T) {
 		s := "abcd"
-		hash, err := dict.addToDict(s)
+		hash, err := testDict.addToDict(s)
 		require.NoError(t, err)
 
-		lookup, err := dict.lookupDict(hash)
+		lookup, err := testDict.lookupDict(hash)
 		assert.NoError(t, err)
 		assert.Equal(t, s, lookup)
 	})
@@ -44,7 +46,7 @@ func TestLookupDict(t *testing.T) {
 	t.Run("Lookup nonexistent item", func(t *testing.T) {
 		hash, err := stringTo64Hash("This does not exist")
 		require.NoError(t, err, "failed to convert string to hash")
-		_, err = dict.lookupDict(hash)
+		_, err = testDict.lookupDict(hash)
 		assert.Error(t, err)
 	})
 
