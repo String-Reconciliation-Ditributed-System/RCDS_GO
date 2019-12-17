@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib"
 )
 
 // TestAddToHashShingleSet is a sequential test that adds shingles to the local shingle set.
@@ -21,7 +23,7 @@ func TestAddToHashShingleSet(t *testing.T) {
 	testShingleSet.AddShingle(1, 2, 3)
 	val, err := testShingleSet.getShingleCount(1, 2)
 	assert.NoError(t, err)
-	assert.Equal(t, 3, int(val))
+	assert.Equal(t, 3, val)
 
 	// Add shingles of same and less counts and see nothing changed.
 	testShingleSet.AddShingle(2, 4, 1)
@@ -29,7 +31,7 @@ func TestAddToHashShingleSet(t *testing.T) {
 	testShingleSet.AddShingle(2, 4, 2)
 	val, err = testShingleSet.getShingleCount(2, 4)
 	assert.NoError(t, err)
-	assert.Equal(t, 9, int(val))
+	assert.Equal(t, 9, val)
 }
 
 // TestRemoveFromHashShingleSet is a sequential test that removes shingles from the local shingle set.
@@ -54,7 +56,7 @@ func TestRemoveFromHashShingleSet(t *testing.T) {
 	wrongShingleCount := hashShingleSet{400: {400: 300}}
 	count, err := testShingleSet.getShingleCount(400, 400)
 	require.NoError(t, err)
-	require.Equal(t, 400, int(count))
+	require.Equal(t, 400, count)
 	err = testShingleSet.removeFromHashShingleSet(&wrongShingleCount)
 	assert.Error(t, err)
 }
@@ -107,11 +109,11 @@ func TestConvertChunksToShingleSet(t *testing.T) {
 	// Test shingle counting.
 	_, err := testShingleSet.addChunksToShingleSet(&[]string{"abc", "abc", "abc"})
 	require.NoError(t, err, "error converting string chunks into shingle set")
-	hash, err := stringTo64Hash("abc")
+	hash, err := lib.StringTo64Hash("abc")
 	require.NoError(t, err, "error converting string to hash")
 	count, err := testShingleSet.getShingleCount(hash, hash)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, int(count))
+	assert.Equal(t, 2, count)
 }
 
 // TestShingleCount tests the getter, setter, and adder for the shingle count.
@@ -123,21 +125,20 @@ func TestShingleCount(t *testing.T) {
 
 	val, err := testShingleSet.getShingleCount(first, second)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, int(val))
+	assert.Equal(t, 1, val)
 
 	val, err = testShingleSet.addShingleCount(first, second, 1)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, int(val))
+	assert.Equal(t, 2, val)
 	assertShingleCount(t, testShingleSet, first, second, 2)
 
 	val, err = testShingleSet.addShingleCount(first, second, -2)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, int(val))
-	assertShingleCount(t, testShingleSet, first, second, 0)
+	assert.Equal(t, 0, val)
 
 	_, err = testShingleSet.addShingleCount(first, second, -1)
 	assert.Error(t, err)
-	assertShingleCount(t, testShingleSet, first, second, 0)
+	assert.Equal(t, 0, val)
 
 	err = testShingleSet.setShingleCount(first, second, 1)
 	assert.NoError(t, err)
@@ -147,5 +148,5 @@ func TestShingleCount(t *testing.T) {
 func assertShingleCount(t *testing.T, set hashShingleSet, first, second uint64, expectedCount int) {
 	val, err := set.getShingleCount(first, second)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedCount, int(val))
+	assert.Equal(t, expectedCount, val)
 }
