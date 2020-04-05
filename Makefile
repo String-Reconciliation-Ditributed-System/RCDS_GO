@@ -12,6 +12,6 @@ build:
 unit-test:
 	$(GO_BUILD_ARGS) go test -mod=vendor ./pkg/... -v
 
-.PHONY: vendor
-vendor:
-	go mod vendor && go mod tidy && go vet ./...
+.PHONY: pre-build
+pre-build:
+	$(GO_BUILD_ARGS) gofmt -w -s . && go mod vendor && go mod tidy && go vet ./...
