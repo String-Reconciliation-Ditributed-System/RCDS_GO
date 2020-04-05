@@ -1,0 +1,9 @@
+before_deploy:
+- ls bin | xargs -n1 -I{} mv bin/{} "bin/$(go env GOOS)-$(go env GOARCH)-{}"
+deploy:
+  provider: releases
+  api_key:
+    secure: oR+aqM9tyBwaF8kniJttnvELXs7p5/B0CtyuR/GEg6UVU0fsqCtC7kpMaSuhLboOfWNIqc4B6yHDnhgqb3cf9uKMtQCfF0f9/sQnVg+w1IjjbGmMXvlGCIQCRsByh1xyYzxNx9aaz95h+Z9ZXsiN09x+gPirDHwTIWp1x1p2UAL5CtP1KNrgatnCpwMAiZMskXhON91f4XU0Ry8wi2ensOqUxuhcTV6p4uTDRI6Hr/Tnsi3mpNLxbz33t0JKaXpwB33fakrGy9mOJ+XEdEaygHjpqdnde/Pmay6iXvUDHqwTQ0Sg0IqMt8vmAEGWUhrgTLeapW9ha7sRbPgnmLShvYDo0+tiOO8TqOVMswRNnegKiILFEGvPi2GC7+069i0G20w7oh28uIb8Qz25C0tH33g3aD1G8rmu/YwW8BA16o+6rVtzxhT6cs1MVX3IkoOo1OdPWTdZ5gs9iMUMh9ZCtBQd79C4WqZde2d0L4VkL3FBUi608V2Niwll4OqTLrh+bZ7LQJfNqu8kt5caFV2yMqN9q7BvGJpyj0yAKkc26yHi89Y4K5oTWvwzf4HaneW7JQkmZXGUzkYbphsZORCNkhNz3IEKvDeItYwNpRJED5Q7LWYDKYW7tHItXG3uLExJSH2gpKx6F5/ZHSW6vECtIOjaU2kW70tKgfBTvSZYI+o=
+  file: bin/*
+  on:
+    repo: Bowenislandsong/RCDS_GO

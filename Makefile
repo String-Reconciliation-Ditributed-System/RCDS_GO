@@ -6,12 +6,12 @@ GO_BUILD_ARGS=CGO_ENABLED=0 GO111MODULE=on
 
 .PHONY: build
 build: 
-	$(GO_BUILD_ARGS) go build -o rcds $(MAIN_PACKAGE)
+	$(GO_BUILD_ARGS) go build -o bin/rcds $(MAIN_PACKAGE)
 
 .PHONY: unit-test
 unit-test:
 	$(GO_BUILD_ARGS) go test -mod=vendor ./pkg/... -v
 
-.PHONY: pre-build
-pre-build:
+.PHONY: vendor-fmt
+vendor-fmt:
 	$(GO_BUILD_ARGS) gofmt -w -s . && go mod vendor && go mod tidy && go vet ./...
