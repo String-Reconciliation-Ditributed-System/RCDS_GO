@@ -1,4 +1,4 @@
-package algorithms
+package rcds
 
 import (
 	"testing"

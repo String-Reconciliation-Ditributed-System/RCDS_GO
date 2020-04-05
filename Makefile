@@ -3,6 +3,8 @@ MAIN_PACKAGE=$(PACKAGE)/cmd
 
 GO_BUILD_ARGS=CGO_ENABLED=0 GO111MODULE=on
 
+.PHONY: all
+all: vendor-fmt unit-test build
 
 .PHONY: build
 build: 
