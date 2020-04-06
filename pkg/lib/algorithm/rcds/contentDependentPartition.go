@@ -7,7 +7,7 @@ import (
 	"github.com/emirpasic/gods/utils"
 	logger "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )
 
 // global log for algorithm
@@ -31,7 +31,7 @@ func stringToHashContent(s *string, rollingWinSize, hashSpace int) (*[]uint64, e
 	contentHash := make([]uint64, contentHashSize)
 
 	for i := 0; i < contentHashSize; i++ {
-		hash, err := lib.StringTo64Hash((*s)[i : i+rollingWinSize])
+		hash, err := algorithm.StringTo64Hash((*s)[i : i+rollingWinSize])
 		if err != nil {
 			return nil, err
 		}

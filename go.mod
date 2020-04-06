@@ -1,6 +1,6 @@
 module github.com/String-Reconciliation-Ditributed-System/RCDS_GO
 
-go 1.13
+go 1.14
 
 require (
 	github.com/emirpasic/gods v1.12.0

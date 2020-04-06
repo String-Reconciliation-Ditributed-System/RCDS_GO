@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )
 
 // TestAddToHashShingleSet is a sequential test that adds shingles to the local shingle set.
@@ -109,7 +109,7 @@ func TestConvertChunksToShingleSet(t *testing.T) {
 	// Test shingle counting.
 	_, err := testShingleSet.addChunksToShingleSet(&[]string{"abc", "abc", "abc"})
 	require.NoError(t, err, "error converting string chunks into shingle set")
-	hash, err := lib.StringTo64Hash("abc")
+	hash, err := algorithm.StringTo64Hash("abc")
 	require.NoError(t, err, "error converting string to hash")
 	count, err := testShingleSet.getShingleCount(hash, hash)
 	assert.NoError(t, err)

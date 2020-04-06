@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )
 
 type shingle struct {
@@ -84,12 +84,12 @@ func (s *hashShingleSet) RemoveSpecShingle(first, second uint64, count uint16) e
 
 // convertChunksToShingleSet converts an array of substrings to a set of shingles.
 // This conversion creates a shingle set of one array of substrings and should be merged into the local shingle set.
-func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*lib.Dictionary, error) {
+func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dictionary, error) {
 	if len(*chunks) == 0 {
 		return nil, fmt.Errorf("input array of strings is empty")
 	}
 
-	dict := make(lib.Dictionary, len(*chunks))
+	dict := make(algorithm.Dictionary, len(*chunks))
 
 	hash, err := dict.AddToDict((*chunks)[0])
 	if err != nil {
