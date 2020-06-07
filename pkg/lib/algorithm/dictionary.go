@@ -16,7 +16,7 @@ func (d *Dictionary) AddToDict(entry string) (uint64, error) {
 	if entry == "" {
 		return 0, fmt.Errorf("no empty string should be added to the Dictionary")
 	}
-	hash, err := StringTo64Hash(entry)
+	hash, err := HashString(entry).ToUint64()
 	if err != nil {
 		return 0, fmt.Errorf("failed to convert string '%s' to hash value, %v", entry, err)
 	}

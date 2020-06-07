@@ -23,7 +23,7 @@ func TestAddToDict(t *testing.T) {
 	// Test Hash Collision
 	s := "abced"
 	sFail := "failed"
-	_, err := StringTo64Hash(s)
+	_, err := HashString(s).ToUint64()
 	require.NoError(t, err, "failed to convert string to hash")
 
 	hash, err := testDict.AddToDict(s)
@@ -44,7 +44,7 @@ func TestLookupDict(t *testing.T) {
 	})
 
 	t.Run("Lookup nonexistent item", func(t *testing.T) {
-		hash, err := StringTo64Hash("This does not exist")
+		hash, err := HashString("This does not exist").ToUint64()
 		require.NoError(t, err, "failed to convert string to hash")
 		_, err = testDict.LookupDict(hash)
 		assert.Error(t, err)

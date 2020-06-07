@@ -31,7 +31,7 @@ func stringToHashContent(s *string, rollingWinSize, hashSpace int) (*[]uint64, e
 	contentHash := make([]uint64, contentHashSize)
 
 	for i := 0; i < contentHashSize; i++ {
-		hash, err := algorithm.StringTo64Hash((*s)[i : i+rollingWinSize])
+		hash, err := algorithm.HashString((*s)[i : i+rollingWinSize]).ToUint64()
 		if err != nil {
 			return nil, err
 		}

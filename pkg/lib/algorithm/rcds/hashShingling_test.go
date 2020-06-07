@@ -109,7 +109,7 @@ func TestConvertChunksToShingleSet(t *testing.T) {
 	// Test shingle counting.
 	_, err := testShingleSet.addChunksToShingleSet(&[]string{"abc", "abc", "abc"})
 	require.NoError(t, err, "error converting string chunks into shingle set")
-	hash, err := algorithm.StringTo64Hash("abc")
+	hash, err := algorithm.HashString("abc").ToUint64()
 	require.NoError(t, err, "error converting string to hash")
 	count, err := testShingleSet.getShingleCount(hash, hash)
 	assert.NoError(t, err)
