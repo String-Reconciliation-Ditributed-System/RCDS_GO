@@ -1,19 +1,26 @@
 package genSync
 
-import "github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
+import (
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
+)
 
 type GenSync interface {
 	Generate(syncType algorithm.SyncType) (GenSync, error)
 	Sync(address string, reconcile bool)
 }
 
+type SetReconciliation struct {
+	SetData set.Set
+}
+
 type StringReconciliation struct {
-	StringData   string
-	BaseSyncType algorithm.SyncType
+	StringData []byte
 }
 
 type SyncInfo struct {
-	syncType  algorithm.SyncType
-	address   string
-	reconcile bool
+	SyncType     algorithm.SyncType
+	BaseSyncType algorithm.SyncType
+	Address      string
+	Reconcile    bool
 }

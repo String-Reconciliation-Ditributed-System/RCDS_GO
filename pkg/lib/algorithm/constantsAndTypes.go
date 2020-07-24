@@ -9,6 +9,7 @@ const (
 	IBLT     SyncType = "InvertibleBloomLookupTable"
 	CPI      SyncType = "CharacteristicPolynomialInterpolation"
 	InterCPI SyncType = "InteractiveCharacteristicPolynomialInterpolation"
+	FullSync SyncType = "FullSync"
 	// set difference estimation
 	StrataEst SyncType = "StrataEstimation"
 )
