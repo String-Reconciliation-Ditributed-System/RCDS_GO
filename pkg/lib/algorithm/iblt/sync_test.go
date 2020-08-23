@@ -80,6 +80,7 @@ func TestNewIBLTSetSync(t *testing.T) {
 		wg.Wait()
 
 		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
+		assert.Equal(t, server.GetTotalBytes(), client.GetTotalBytes())
 	}
 }
 
