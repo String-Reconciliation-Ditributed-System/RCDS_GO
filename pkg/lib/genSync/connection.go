@@ -67,7 +67,7 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	s.sentBytes = +len(data) + 8
+	s.sentBytes += len(data) + 8
 	return s.connection.Write(data)
 }
 
