@@ -18,26 +18,25 @@ func TestWithDataLen(t *testing.T) {
 		serverSetSize    int
 		clientSetSize    int
 		intersectionSize int
-		dataLen int
+		dataLen          int
 	}{
 		{
 			serverSetSize:    5,
 			intersectionSize: 4,
 			clientSetSize:    5,
-			dataLen: 200,
-
+			dataLen:          200,
 		},
 		{
 			serverSetSize:    400,
 			clientSetSize:    400,
 			intersectionSize: 350,
-			dataLen: 300,
+			dataLen:          300,
 		},
 		{
 			serverSetSize:    5000,
 			clientSetSize:    4000,
 			intersectionSize: 3001,
-			dataLen: 20,
+			dataLen:          20,
 		},
 	}
 	for _, tt := range tests {
@@ -97,25 +96,25 @@ func TestWithHashFunc(t *testing.T) {
 		serverSetSize    int
 		clientSetSize    int
 		intersectionSize int
-		hashFunc crypto.Hash
+		hashFunc         crypto.Hash
 	}{
 		{
 			serverSetSize:    5,
 			intersectionSize: 4,
 			clientSetSize:    5,
-			hashFunc: crypto.SHA512,
+			hashFunc:         crypto.SHA512,
 		},
 		{
 			serverSetSize:    400,
 			clientSetSize:    400,
 			intersectionSize: 350,
-			hashFunc: crypto.SHA256,
+			hashFunc:         crypto.SHA256,
 		},
 		{
 			serverSetSize:    5000,
 			clientSetSize:    4000,
 			intersectionSize: 3001,
-			hashFunc: crypto.SHA1,
+			hashFunc:         crypto.SHA1,
 		},
 	}
 	for _, tt := range tests {
@@ -123,15 +122,15 @@ func TestWithHashFunc(t *testing.T) {
 		diffNum := tt.serverSetSize - tt.intersectionSize
 		diffNum += tt.clientSetSize - tt.intersectionSize
 
-		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum),WithHashFunc(tt.hashFunc))
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithHashFunc(tt.hashFunc))
 		require.NoError(t, err)
 
-		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum),WithHashFunc(tt.hashFunc))
+		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithHashFunc(tt.hashFunc))
 		require.NoError(t, err)
 
 		expectedSet := set.New()
 		for i := 0; i < tt.intersectionSize; i++ {
-			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
 			err = server.AddElement(td)
 			require.NoError(t, err)
 			err = client.AddElement(td)
@@ -140,14 +139,14 @@ func TestWithHashFunc(t *testing.T) {
 		}
 
 		for i := 0; i < tt.clientSetSize-tt.intersectionSize; i++ {
-			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
 			err = client.AddElement(td)
 			require.NoError(t, err)
 			expectedSet.InsertKey(td)
 		}
 
 		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
-			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
 			err = server.AddElement(td)
 			require.NoError(t, err)
 			expectedSet.InsertKey(td)
@@ -169,12 +168,108 @@ func TestWithHashFunc(t *testing.T) {
 	}
 }
 
-func TestWithMaxResync(t *testing.T) {
-
-}
-
 func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
+	rand.Seed(100)
+	port1 := 8080
+	port2 := 8081 // these can be different address. test only need ports for localhost.
 
+	tests := []struct {
+		serverSetSize    int
+		clientSetSize    int
+		intersectionSize int
+	}{
+		{
+			serverSetSize:    5,
+			intersectionSize: 4,
+			clientSetSize:    5,
+		},
+		{
+			serverSetSize:    400,
+			clientSetSize:    400,
+			intersectionSize: 350,
+		},
+		{
+			serverSetSize:    5000,
+			clientSetSize:    4000,
+			intersectionSize: 3001,
+		},
+	}
+	for _, tt := range tests {
+		t.Logf("New Pair test with %+v", tt)
+		diffNum := tt.serverSetSize - tt.intersectionSize
+		diffNum += tt.clientSetSize - tt.intersectionSize
+
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum))
+		require.NoError(t, err)
+
+		client1, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum))
+		require.NoError(t, err)
+
+		client2, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum))
+		require.NoError(t, err)
+
+		expectedSet := set.New()
+		for i := 0; i < tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			err = client1.AddElement(td)
+			require.NoError(t, err)
+			err = client2.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < tt.clientSetSize-tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
+			err = client1.AddElement(td)
+			require.NoError(t, err)
+			err = client2.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1, 1000)))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		var wg sync.WaitGroup
+		t.Log("syncing with client 1 in the first address")
+		wg.Add(1)
+		go func() {
+			err := client1.SyncServer("", port1)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		wg.Add(1)
+		go func() {
+			err = server.SyncClient("", port1)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		wg.Wait()
+
+		t.Log("syncing with client 2 in the second address")
+		wg.Add(1)
+		go func() {
+			err := client2.SyncServer("", port2)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		wg.Add(1)
+		go func() {
+			err = server.SyncClient("", port2)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		wg.Wait()
+
+		assert.EqualValues(t, *server.GetLocalSet(), *client1.GetLocalSet())
+		assert.EqualValues(t, *server.GetLocalSet(), *client2.GetLocalSet())
+	}
 }
 
 func TestIbltSync_SuccessRate(t *testing.T) {
