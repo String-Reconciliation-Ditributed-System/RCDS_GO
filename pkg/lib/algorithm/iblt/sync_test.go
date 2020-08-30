@@ -1,36 +1,43 @@
 package iblt
 
 import (
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
+	"crypto"
+	"sync"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"sync"
 
-	"testing"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 )
 
-func TestNewIBLTSetSync(t *testing.T) {
-	rand.Seed(100)
+func TestWithDataLen(t *testing.T) {
+	rand.Seed(101)
 	tests := []struct {
 		serverSetSize    int
 		clientSetSize    int
 		intersectionSize int
+		dataLen int
 	}{
 		{
 			serverSetSize:    5,
 			intersectionSize: 4,
 			clientSetSize:    5,
+			dataLen: 200,
+
 		},
 		{
 			serverSetSize:    400,
 			clientSetSize:    400,
 			intersectionSize: 350,
+			dataLen: 300,
 		},
 		{
 			serverSetSize:    5000,
 			clientSetSize:    4000,
 			intersectionSize: 3001,
+			dataLen: 20,
 		},
 	}
 	for _, tt := range tests {
@@ -38,34 +45,34 @@ func TestNewIBLTSetSync(t *testing.T) {
 		diffNum := tt.serverSetSize - tt.intersectionSize
 		diffNum += tt.clientSetSize - tt.intersectionSize
 
-		server, err := NewIBLTSetSync(diffNum, 200)
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(tt.dataLen))
 		require.NoError(t, err)
 
-		client, err := NewIBLTSetSync(diffNum, 200)
+		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(tt.dataLen))
 		require.NoError(t, err)
 
 		expectedSet := set.New()
 		for i := 0; i < tt.intersectionSize; i++ {
-			td := []byte(rand.String(200))
+			td := []byte(rand.String(tt.dataLen))
 			err = server.AddElement(td)
 			require.NoError(t, err)
 			err = client.AddElement(td)
 			require.NoError(t, err)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		for i := 0; i < tt.clientSetSize-tt.intersectionSize; i++ {
-			td := []byte(rand.String(200))
+			td := []byte(rand.String(tt.dataLen))
 			err = client.AddElement(td)
 			require.NoError(t, err)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
-			td := []byte(rand.String(200))
+			td := []byte(rand.String(tt.dataLen))
 			err = server.AddElement(td)
 			require.NoError(t, err)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		var wg sync.WaitGroup
@@ -82,6 +89,92 @@ func TestNewIBLTSetSync(t *testing.T) {
 		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
 		assert.Equal(t, server.GetTotalBytes(), client.GetTotalBytes())
 	}
+}
+
+func TestWithHashFunc(t *testing.T) {
+	rand.Seed(100)
+	tests := []struct {
+		serverSetSize    int
+		clientSetSize    int
+		intersectionSize int
+		hashFunc crypto.Hash
+	}{
+		{
+			serverSetSize:    5,
+			intersectionSize: 4,
+			clientSetSize:    5,
+			hashFunc: crypto.SHA512,
+		},
+		{
+			serverSetSize:    400,
+			clientSetSize:    400,
+			intersectionSize: 350,
+			hashFunc: crypto.SHA256,
+		},
+		{
+			serverSetSize:    5000,
+			clientSetSize:    4000,
+			intersectionSize: 3001,
+			hashFunc: crypto.SHA1,
+		},
+	}
+	for _, tt := range tests {
+		t.Logf("New Pair test with %+v", tt)
+		diffNum := tt.serverSetSize - tt.intersectionSize
+		diffNum += tt.clientSetSize - tt.intersectionSize
+
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum),WithHashFunc(tt.hashFunc))
+		require.NoError(t, err)
+
+		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum),WithHashFunc(tt.hashFunc))
+		require.NoError(t, err)
+
+		expectedSet := set.New()
+		for i := 0; i < tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < tt.clientSetSize-tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
+			td := []byte(rand.String(rand.IntnRange(1,1000)))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			err := client.SyncServer("", 8080)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		err = server.SyncClient("", 8080)
+		assert.NoError(t, err)
+		wg.Wait()
+
+		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
+		assert.Equal(t, server.GetTotalBytes(), client.GetTotalBytes())
+	}
+}
+
+func TestWithMaxResync(t *testing.T) {
+
+}
+
+func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
+
 }
 
 func TestIbltSync_SuccessRate(t *testing.T) {
@@ -114,10 +207,10 @@ func TestIbltSync_SuccessRate(t *testing.T) {
 				diffNum := serverSetSize - intersectionSize
 				diffNum += serverSetSize - intersectionSize
 
-				server, err := NewIBLTSetSync(diffNum, dataLen)
+				server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
 				require.NoError(t, err)
 
-				client, err := NewIBLTSetSync(diffNum, dataLen)
+				client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
 				require.NoError(t, err)
 
 				expectedSet := set.New()
@@ -127,21 +220,21 @@ func TestIbltSync_SuccessRate(t *testing.T) {
 					require.NoError(t, err)
 					err = client.AddElement(td)
 					require.NoError(t, err)
-					expectedSet.Insert(td)
+					expectedSet.InsertKey(td)
 				}
 
 				for i := 0; i < clientSetSize-intersectionSize; i++ {
 					td := []byte(rand.String(dataLen))
 					err = client.AddElement(td)
 					require.NoError(t, err)
-					expectedSet.Insert(td)
+					expectedSet.InsertKey(td)
 				}
 
 				for i := 0; i < serverSetSize-intersectionSize; i++ {
 					td := []byte(rand.String(dataLen))
 					err = server.AddElement(td)
 					require.NoError(t, err)
-					expectedSet.Insert(td)
+					expectedSet.InsertKey(td)
 				}
 
 				var wg sync.WaitGroup

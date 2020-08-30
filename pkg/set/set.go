@@ -6,17 +6,11 @@ import (
 	"reflect"
 )
 
-type Set map[interface{}]struct{}
+type Set map[interface{}]interface{}
 
 // Create a new set
-func New(initial ...interface{}) *Set {
-	s := &Set{}
-
-	for _, v := range initial {
-		s.Insert(v)
-	}
-
-	return s
+func New() *Set {
+	return &Set{}
 }
 
 // Find the difference between two sets (s - set)
@@ -24,8 +18,8 @@ func (s *Set) Difference(set *Set) *Set {
 	n := make(Set)
 
 	for k := range *s {
-		if _, exists := (*set)[k]; !exists {
-			n[k] = struct{}{}
+		if v, exists := (*set)[k]; !exists {
+			n[k] = v
 		}
 	}
 
@@ -40,16 +34,29 @@ func (s *Set) Do(f func(interface{})) {
 }
 
 // Test to see whether or not the element is in the set
-func (s *Set) Has(element interface{}) bool {
-	element = convertToHashableElement(element)
-	_, exists := (*s)[element]
+func (s *Set) Has(key interface{}) bool {
+	key = convertToHashableElement(key)
+	_, exists := (*s)[key]
 	return exists
 }
 
-// Add an element to the set
-func (s *Set) Insert(element interface{}) {
-	element = convertToHashableElement(element)
-	(*s)[element] = struct{}{}
+func (s *Set) Get(key interface{}) interface{} {
+	key = convertToHashableElement(key)
+	return (*s)[key]
+}
+
+// Add an element to the set, val can be struct{}
+func (s *Set) Insert(key, val interface{}) {
+	if val == nil {
+		val = struct{}{}
+	}
+	key = convertToHashableElement(key)
+	(*s)[key] = val
+}
+
+func (s *Set) InsertKey(key interface{}) {
+	key = convertToHashableElement(key)
+	(*s)[key] = struct{}{}
 }
 
 // Find the intersection of two sets
@@ -57,8 +64,8 @@ func (s *Set) Intersection(otherSet *Set) *Set {
 	n := make(Set)
 
 	for k := range *s {
-		if _, exists := (*otherSet)[k]; exists {
-			n[k] = struct{}{}
+		if val, exists := (*otherSet)[k]; exists {
+			n[k] = val
 		}
 	}
 
@@ -76,9 +83,9 @@ func (s *Set) ProperSubsetOf(set *Set) bool {
 }
 
 // Remove an element from the set
-func (s *Set) Remove(element interface{}) {
-	element = convertToHashableElement(element)
-	delete(*s, element)
+func (s *Set) Remove(key interface{}) {
+	key = convertToHashableElement(key)
+	delete(*s, key)
 }
 
 // Test whether or not this set is a subset of "set"
@@ -98,11 +105,11 @@ func (s *Set) SubsetOf(set *Set) bool {
 func (s *Set) Union(set *Set) *Set {
 	n := make(Set)
 
-	for k := range *s {
-		n[k] = struct{}{}
+	for k, v := range *s {
+		n[k] = v
 	}
-	for k := range *set {
-		n[k] = struct{}{}
+	for k, v := range *set {
+		n[k] = v
 	}
 
 	return &n
@@ -111,8 +118,8 @@ func (s *Set) Union(set *Set) *Set {
 // Digest is the xor sum of the entire set's hash.
 func (s *Set) GetDigest() (uint64, error) {
 	var sum uint64
-	for elem := range *s {
-		e, err := algorithm.HashString(fmt.Sprint(elem)).ToUint64()
+	for k, v := range *s {
+		e, err := algorithm.HashString(fmt.Sprint(k) + fmt.Sprint(v)).ToUint64()
 		if err != nil {
 			return 0, err
 		}
@@ -121,6 +128,8 @@ func (s *Set) GetDigest() (uint64, error) {
 	return sum, nil
 }
 
+// convertToHashableElement includes all methods converting element into a hashable type:
+// 1. convert []byte to string.
 func convertToHashableElement(element interface{}) interface{} {
 	if reflect.TypeOf(element).String() == reflect.TypeOf([]byte{}).String() {
 		element = string(element.([]byte))

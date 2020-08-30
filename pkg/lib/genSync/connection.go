@@ -15,6 +15,10 @@ type Connection interface {
 	Connect() error
 	Send(data []byte) (int, error)
 	Receive() ([]byte, error)
+	SendBytesSlice(dataSlice [][]byte) (int, error)
+	ReceiveBytesSlice() ([][]byte, error)
+	SendSkipSyncBoolWithInfo(skipSync bool, format string, args ...interface{}) error
+	ReceiveSkipSyncBoolWithInfo(format string, args ...interface{}) (bool, error)
 	Close() error
 	GetIp() string
 	GetPort() string
@@ -103,7 +107,7 @@ func (s *socketConnection) Receive() ([]byte, error) {
 		if endPt > sizeInt {
 			endPt = sizeInt
 		}
-		n, err := s.connection.Read(res[sum : endPt])
+		n, err := s.connection.Read(res[sum:endPt])
 		if err != nil {
 			return nil, err
 		}
@@ -113,6 +117,68 @@ func (s *socketConnection) Receive() ([]byte, error) {
 	s.receivedBytes += len(res)
 
 	return res, err
+}
+
+func (s *socketConnection) SendBytesSlice(dataSlice [][]byte) (int, error) {
+	if _, err := s.Send(util.IntToBytes(len(dataSlice))); err != nil {
+		return 0, err
+	}
+	for _, d := range dataSlice {
+		if _, err := s.Send(d); err != nil {
+			return 0, err
+		}
+	}
+	return len(dataSlice), nil
+}
+
+func (s *socketConnection) ReceiveBytesSlice() ([][]byte, error) {
+	setSize, err := s.Receive()
+	if err != nil {
+		return nil, err
+	}
+	ss := util.BytesToInt(setSize)
+	res := make([][]byte, ss)
+
+	for j := 0; j < ss; j++ {
+		d, err := s.Receive()
+		if err != nil {
+			return nil, err
+		}
+		res[j] = d
+	}
+	return res, nil
+}
+
+// SendSkipSyncWithInfo sends skip or continue sync. If true, signals skip sync else continue.
+func (s *socketConnection) SendSkipSyncBoolWithInfo(skipSync bool, format string, args ...interface{}) error {
+	if skipSync {
+		logrus.Infof(format, args...)
+		if _, err := s.Send([]byte{SYNC_SKIP}); err != nil {
+			return err
+		}
+
+	} else {
+		if _, err := s.Send([]byte{SYNC_CONTINUE}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *socketConnection) ReceiveSkipSyncBoolWithInfo(format string, args ...interface{}) (bool, error) {
+	syncStatus, err := s.Receive()
+	if err != nil {
+		return false, err
+	}
+
+	if len(syncStatus) == 1 && syncStatus[0] == SYNC_SKIP {
+		logrus.Infof(format, args...)
+		return true, nil
+	} else if len(syncStatus) == 1 && syncStatus[0] == SYNC_CONTINUE {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("error receiving skip sync signal")
 }
 
 func (s *socketConnection) Close() error {

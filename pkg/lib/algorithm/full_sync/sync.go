@@ -31,7 +31,7 @@ func (f *fullSync) SetFreezeLocal(freezeLocal bool) {
 }
 
 func (f *fullSync) AddElement(elem interface{}) error {
-	f.Set.Insert(elem)
+	f.Set.InsertKey(elem)
 	return nil
 }
 
@@ -114,7 +114,7 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 		if err != nil {
 			return err
 		}
-		f.Set.Insert(d)
+		f.Set.InsertKey(d)
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 		if err != nil {
 			return err
 		}
-		tempSet.Insert(d)
+		tempSet.InsertKey(d)
 	}
 	if !f.FreezeLocal {
 		for elem := range *tempSet.Difference(f.Set) {

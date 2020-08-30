@@ -7,5 +7,5 @@ import (
 
 func TestSet_Insert(t *testing.T) {
 	s := New()
-	s.Insert([]byte(rand.String(10)))
+	s.InsertKey([]byte(rand.String(10)))
 }
