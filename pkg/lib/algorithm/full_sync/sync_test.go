@@ -53,19 +53,19 @@ func TestNewFullSetSync(t *testing.T) {
 			td := []byte(rand.String(200))
 			server.AddElement(td)
 			client.AddElement(td)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		for i := 0; i < tt.clientSetSize-tt.intersectionSize; i++ {
 			td := []byte(rand.String(200))
 			client.AddElement(td)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
 			td := []byte(rand.String(200))
 			server.AddElement(td)
-			expectedSet.Insert(td)
+			expectedSet.InsertKey(td)
 		}
 
 		var wg sync.WaitGroup
