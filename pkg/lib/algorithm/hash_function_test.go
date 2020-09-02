@@ -14,17 +14,17 @@ func TestHashBytesWithCryptoFunc(t *testing.T) {
 	}{
 		{
 			function:  crypto.SHA256,
-			hashLen:   256/8,
+			hashLen:   256 / 8,
 			hashInput: []byte("this"),
 		},
 		{
 			function:  crypto.SHA256,
-			hashLen:   256/8,
+			hashLen:   256 / 8,
 			hashInput: []byte{},
 		},
 		{
 			function:  crypto.SHA512,
-			hashLen:   512/8,
+			hashLen:   512 / 8,
 			hashInput: []byte("test"),
 		},
 	}
