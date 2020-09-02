@@ -91,7 +91,7 @@ func TestWithDataLen(t *testing.T) {
 }
 
 func TestWithHashFunc(t *testing.T) {
-	rand.Seed(100)
+	rand.Seed(10)
 	tests := []struct {
 		serverSetSize    int
 		clientSetSize    int

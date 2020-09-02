@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/SheldonZhong/go-IBLT"
+	iblt "github.com/SheldonZhong/go-IBLT"
 	"github.com/sirupsen/logrus"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
@@ -25,10 +25,10 @@ type ibltSync struct {
 }
 
 type ibltOptions struct {
-	HashSync          bool        // Converts data into hash values for IBLT and transfer literal data based on the differences. (enabled if HashFunc is provided)
-	HashFunc          crypto.Hash // the hash function to convert data into values for IBLT.
-	SymmetricDiff     int         // symmetrical set difference between set A and B  which is |A-B| + |B-A| (required)
-	DataLen           int         // maximum length of data elements (optional if HashSync is used.)
+	HashSync      bool        // Converts data into hash values for IBLT and transfer literal data based on the differences. (enabled if HashFunc is provided)
+	HashFunc      crypto.Hash // the hash function to convert data into values for IBLT.
+	SymmetricDiff int         // symmetrical set difference between set A and B  which is |A-B| + |B-A| (required)
+	DataLen       int         // maximum length of data elements (optional if HashSync is used.)
 }
 
 func (i *ibltOptions) apply(options []IBLTOption) {
@@ -119,8 +119,9 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 		}
 		i.Set.Insert(key, elem)
 		return i.Table.Insert(key)
+	} else {
+		i.Set.InsertKey(elem)
 	}
-	i.Set.InsertKey(elem)
 	return i.Table.Insert(elem.([]byte))
 }
 
