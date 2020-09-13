@@ -54,6 +54,7 @@ func NewTcpConnection(ipAddr string, port int) (Connection, error) {
 // Connect tires to connect with server and fails upon several retries.
 func (s *socketConnection) Connect() error {
 	var err error
+	logrus.Infof("connecting to: %v", s.tcpAddress)
 	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
 		return err != nil
 	}, func() error {
@@ -78,7 +79,7 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 func (s *socketConnection) Listen() error {
 	var err error
 	s.listener, err = net.ListenTCP("tcp", s.tcpAddress)
-	logrus.Info(s.tcpAddress)
+	logrus.Infof("listening on: %v", s.tcpAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
