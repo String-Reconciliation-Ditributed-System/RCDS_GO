@@ -1,7 +1,6 @@
 package iblt
 
 import (
-	"crypto"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -18,68 +17,12 @@ import (
 type ibltSync struct {
 	*iblt.Table
 	*set.Set
+	resyncIBLTs   []*iblt.Table
 	additionals   *set.Set
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
 	options       ibltOptions
-}
-
-type ibltOptions struct {
-	HashSync      bool        // Converts data into hash values for IBLT and transfer literal data based on the differences. (enabled if HashFunc is provided)
-	HashFunc      crypto.Hash // the hash function to convert data into values for IBLT.
-	SymmetricDiff int         // symmetrical set difference between set A and B  which is |A-B| + |B-A| (required)
-	DataLen       int         // maximum length of data elements (optional if HashSync is used.)
-}
-
-func (i *ibltOptions) apply(options []IBLTOption) {
-	for _, option := range options {
-		option(i)
-	}
-}
-
-func (i *ibltOptions) complete() error {
-	if i.SymmetricDiff <= 0 {
-		return fmt.Errorf("number of difference should be positive")
-	}
-	// if Datalen is not set, which also says hash is not set, we go to default setting.
-	if i.DataLen == 0 {
-		i.HashSync = true
-		i.HashFunc = crypto.SHA256
-		i.DataLen = crypto.SHA256.Size()
-	}
-	return nil
-}
-
-type IBLTOption func(option *ibltOptions)
-
-func WithSymmetricSetDiff(diffNum int) IBLTOption {
-	return func(option *ibltOptions) {
-		option.SymmetricDiff = diffNum
-	}
-}
-
-func WithHashSync() IBLTOption {
-	return func(option *ibltOptions) {
-		option.HashSync = true
-		option.HashFunc = crypto.SHA256
-		option.DataLen = crypto.SHA256.Size()
-	}
-}
-
-func WithHashFunc(hashFunc crypto.Hash) IBLTOption {
-	return func(option *ibltOptions) {
-		option.HashFunc = hashFunc
-		option.HashSync = true
-		option.DataLen = hashFunc.Size()
-	}
-}
-
-func WithDataLen(length int) IBLTOption {
-	return func(option *ibltOptions) {
-		option.DataLen = length
-		option.HashSync = false
-	}
 }
 
 func NewIBLTSetSync(option ...IBLTOption) (genSync.GenSync, error) {
@@ -89,17 +32,17 @@ func NewIBLTSetSync(option ...IBLTOption) (genSync.GenSync, error) {
 		return nil, err
 	}
 
-	tableSize := 2*opt.SymmetricDiff + opt.SymmetricDiff/2
-	if tableSize < 4 {
-		tableSize = 4
-	}
-	numFxn := int(math.Log10(float64(tableSize)))
-	if numFxn < 2 {
-		numFxn = 2
+	tableSize, numFxn := calculateTableDimentions(opt.SymmetricDiff, opt.TableSizeConstant)
+
+	IBLTs := make([]*iblt.Table, opt.MaxSyncRetry)
+	for i := range IBLTs {
+		tableSize, numFxn := calculateTableDimentions(opt.SymmetricDiff, opt.TableSizeConstant+float64(i+1))
+		IBLTs[i] = iblt.NewTable(uint(tableSize), opt.DataLen, 1, numFxn)
 	}
 
 	return &ibltSync{
 		Table:         iblt.NewTable(uint(tableSize), opt.DataLen, 1, numFxn),
+		resyncIBLTs:   IBLTs,
 		Set:           set.New(),
 		additionals:   set.New(),
 		SentBytes:     0,
@@ -120,11 +63,19 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 			return err
 		}
 		i.Set.Insert(key, elem)
+
+		for j := range i.resyncIBLTs {
+			i.resyncIBLTs[j].Insert(key)
+		}
 		return i.Table.Insert(key)
 	} else {
 		i.Set.InsertKey(elem)
 	}
-	return i.Table.Insert(elem.([]byte))
+	key := elem.([]byte)
+	for j := range i.resyncIBLTs {
+		i.resyncIBLTs[j].Insert(key)
+	}
+	return i.Table.Insert(key)
 }
 
 func (i *ibltSync) DeleteElement(elem interface{}) error {
@@ -134,10 +85,17 @@ func (i *ibltSync) DeleteElement(elem interface{}) error {
 			return err
 		}
 		i.Set.Remove(key)
+		for j := range i.resyncIBLTs {
+			i.resyncIBLTs[j].Delete(key)
+		}
 		return i.Table.Delete(key)
 	}
 	i.Set.Remove(elem)
-	return i.Table.Delete(elem.([]byte))
+	key := elem.([]byte)
+	for j := range i.resyncIBLTs {
+		i.resyncIBLTs[j].Delete(key)
+	}
+	return i.Table.Delete(key)
 }
 
 func (i *ibltSync) SyncClient(ip string, port int) error {
@@ -198,7 +156,7 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 		return nil
 	}
 
-	// Send table to server to extract the difference
+	// Send table to server to extract the differences
 	tableData, err := i.Table.Serialize()
 	if err != nil {
 		return err
@@ -206,6 +164,13 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 
 	if _, err = client.Send(tableData); err != nil {
 		return err
+	}
+	if skipResync, err := client.ReceiveSkipSyncBoolWithInfo("IBLT decode success, resync not necessary"); err != nil {
+		return err
+	} else if !skipResync {
+		if err = i.resyncClient(client); err != nil {
+			return fmt.Errorf("error decoding IBLT table after %d retries , %v", i.options.MaxSyncRetry, err)
+		}
 	}
 
 	// Help server if under hashsync and server is not freezing local set
@@ -299,6 +264,7 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 		return err
 	}
 
+	// Receive table from client to extract the differences
 	clientTableData, err := server.Receive()
 	if err != nil {
 		return err
@@ -312,8 +278,16 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 		return err
 	}
 	diff, err := clientTable.Decode()
+	if statusErr := server.SendSkipSyncBoolWithInfo(i.options.MaxSyncRetry > 0 && err == nil, "IBLT decode success, resync not necessary"); statusErr != nil {
+		return statusErr
+	}
 	if err != nil {
-		return fmt.Errorf("error decoding IBLT table, %v", err)
+		if i.options.MaxSyncRetry > 0 {
+			diff, err = i.resyncServer(server)
+		}
+		if err != nil {
+			return fmt.Errorf("error decoding IBLT table after %d retries , %v", i.options.MaxSyncRetry, err)
+		}
 	}
 
 	if i.options.HashSync {
@@ -391,4 +365,72 @@ func (i *ibltSync) GetTotalBytes() int {
 
 func (i *ibltSync) GetSetAdditions() *set.Set {
 	return i.additionals
+}
+
+// resyncServer double the IBLT size and resync with client
+func (i *ibltSync) resyncServer(connection genSync.Connection) (diff *iblt.Diff, syncErr error) {
+	for j := 0; j < i.options.MaxSyncRetry; j++ {
+		logrus.Debugf("server sync retires %d...", j+1)
+		clientTableData, err := connection.Receive()
+		if err != nil {
+			syncErr = err
+			continue
+		}
+
+		clientTable, err := iblt.Deserialize(clientTableData)
+		if err != nil {
+			syncErr = err
+			continue
+		}
+		if err = clientTable.Subtract(i.resyncIBLTs[j]); err != nil {
+			syncErr = err
+			continue
+		}
+		diff, err := clientTable.Decode()
+		syncErr = connection.SendSkipSyncBoolWithInfo(err == nil, "resync success after %d additional tries, skipping the rest of retires", j+1)
+		if err != nil {
+			syncErr = fmt.Errorf("%v, %v", syncErr, err)
+			continue
+		}
+		return diff, syncErr
+	}
+	return nil, syncErr
+}
+
+// resyncClient double the IBLT size and resync with client
+func (i *ibltSync) resyncClient(connection genSync.Connection) (syncErr error) {
+	for j := 0; j < i.options.MaxSyncRetry; j++ {
+		logrus.Debugf("client sync retires %d...", j+1)
+		tableData, err := i.resyncIBLTs[j].Serialize()
+		if err != nil {
+			syncErr = err
+			continue
+		}
+
+		if _, err = connection.Send(tableData); err != nil {
+			syncErr = err
+			continue
+		}
+		retrySuccess, err := connection.ReceiveSkipSyncBoolWithInfo("resync success after %d additional tries, skipping the rest of retires", j+1)
+		if retrySuccess {
+			return nil
+		} else {
+			syncErr = err
+			continue
+		}
+	}
+	return syncErr
+}
+
+// calculateTableDimentions calculates the IBLT dimentions include tablesize and number of hash functions used.
+func calculateTableDimentions(symmetricDifferences int, tableSizeContant float64) (int, int) {
+	tableSize := math.Ceil(float64(symmetricDifferences) * tableSizeContant)
+	if tableSize < 4 {
+		tableSize = 4
+	}
+	numFxn := int(math.Log10(tableSize))
+	if numFxn < 2 {
+		numFxn = 2
+	}
+	return int(tableSize), numFxn
 }

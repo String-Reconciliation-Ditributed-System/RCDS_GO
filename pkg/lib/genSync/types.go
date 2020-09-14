@@ -5,4 +5,5 @@ const (
 	SYNC_FAIL     uint8 = 1
 	SYNC_SKIP     uint8 = 2
 	SYNC_CONTINUE uint8 = 3
+	SYNC_RETRY    uint8 = 4
 )
