@@ -119,8 +119,8 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 	return nil
 }
 
-func (f *fullSync) SyncServer(ip string, port int) error {
-	server, err := genSync.NewTcpConnection(ip, port)
+func (f *fullSync) SyncServer(port int) error {
+	server, err := genSync.NewTcpConnection("", port)
 	if err != nil {
 		return err
 	}

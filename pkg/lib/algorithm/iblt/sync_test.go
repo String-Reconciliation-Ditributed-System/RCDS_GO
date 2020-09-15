@@ -77,7 +77,7 @@ func TestWithDataLen(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 8080)
+			err := client.SyncServer(8080)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -155,7 +155,7 @@ func TestWithHashFunc(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 8080)
+			err := client.SyncServer(8080)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -240,7 +240,7 @@ func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
 		t.Log("syncing with client 1 in the first address")
 		wg.Add(1)
 		go func() {
-			err := client1.SyncServer("", port1)
+			err := client1.SyncServer(port1)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -255,7 +255,7 @@ func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
 		t.Log("syncing with client 2 in the second address")
 		wg.Add(1)
 		go func() {
-			err := client2.SyncServer("", port2)
+			err := client2.SyncServer(port2)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -335,7 +335,7 @@ func TestIbltSync_SuccessRate(t *testing.T) {
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go func() {
-					client.SyncServer("", 8080+index)
+					client.SyncServer(8080 + index)
 					wg.Done()
 				}()
 				server.SyncClient("", 8080+index)
