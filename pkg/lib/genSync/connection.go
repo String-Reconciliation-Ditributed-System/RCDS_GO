@@ -36,13 +36,16 @@ type socketConnection struct {
 }
 
 // Original TCP buffer size for slower networks.
-const bufferSize int = 65535
+const (
+	bufferSize int = 65535
+	tcp string = "tcp4"
+)
 
 func NewTcpConnection(ipAddr string, port int) (Connection, error) {
 	if ipAddr == "" {
 		ipAddr = "localhost"
 	}
-	addr, err := net.ResolveTCPAddr("tcp", strings.Join([]string{ipAddr, strconv.Itoa(port)}, ":"))
+	addr, err := net.ResolveTCPAddr(tcp, strings.Join([]string{ipAddr, strconv.Itoa(port)}, ":"))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +61,7 @@ func (s *socketConnection) Connect() error {
 	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
 		return err != nil
 	}, func() error {
-		s.connection, err = net.DialTCP("tcp", nil, s.tcpAddress)
+		s.connection, err = net.DialTCP(tcp, nil, s.tcpAddress)
 		return err
 	})
 }
@@ -78,7 +81,7 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 
 func (s *socketConnection) Listen() error {
 	var err error
-	s.listener, err = net.ListenTCP("tcp", s.tcpAddress)
+	s.listener, err = net.ListenTCP(tcp, s.tcpAddress)
 	logrus.Infof("listening on: %v", s.tcpAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
