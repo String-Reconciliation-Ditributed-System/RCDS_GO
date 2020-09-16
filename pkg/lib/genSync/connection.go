@@ -64,6 +64,7 @@ func (s *socketConnection) Connect() error {
 }
 
 func (s *socketConnection) Send(data []byte) (int, error) {
+	logrus.Infof("sending: %v", data)
 	if err := s.connection.SetWriteBuffer(bufferSize); err != nil {
 		return 0, err
 	}
@@ -73,6 +74,7 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 		return 0, err
 	}
 	s.sentBytes += len(data) + 8
+	logrus.Infof("done sending: %v", data)
 	return s.connection.Write(data)
 }
 
@@ -89,6 +91,7 @@ func (s *socketConnection) Listen() error {
 }
 
 func (s *socketConnection) Receive() ([]byte, error) {
+	logrus.Infof("done receiving data...")
 	if err := s.connection.SetReadBuffer(bufferSize); err != nil {
 		return nil, err
 	}
@@ -116,7 +119,7 @@ func (s *socketConnection) Receive() ([]byte, error) {
 		i++
 	}
 	s.receivedBytes += len(res)
-
+	logrus.Infof("done receiving: %v", res)
 	return res, err
 }
 
@@ -183,6 +186,7 @@ func (s *socketConnection) ReceiveSkipSyncBoolWithInfo(format string, args ...in
 }
 
 func (s *socketConnection) Close() error {
+	logrus.Infof("closing connection...")
 	if err := s.listener.Close(); err != nil {
 		logrus.Debugf("failed to close listener, %v", err)
 	}
