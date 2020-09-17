@@ -10,6 +10,7 @@ import (
 
 type fullSync struct {
 	*set.Set
+	additionals   *set.Set
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
@@ -18,6 +19,7 @@ type fullSync struct {
 func NewFullSetSync() (genSync.GenSync, error) {
 	return &fullSync{
 		Set:           set.New(),
+		additionals:   set.New(),
 		SentBytes:     0,
 		ReceivedBytes: 0,
 		FreezeLocal:   false,
@@ -114,7 +116,8 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 		if err != nil {
 			return err
 		}
-		f.Set.InsertKey(d)
+		f.additionals.InsertKey(d)
+		f.AddElement(d)
 	}
 	return nil
 }
@@ -171,6 +174,7 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 	}
 	if !f.FreezeLocal {
 		for elem := range *tempSet.Difference(f.Set) {
+			f.additionals.InsertKey(elem)
 			f.AddElement(elem)
 		}
 	} else {
@@ -214,4 +218,8 @@ func (f *fullSync) GetReceivedBytes() int {
 
 func (f *fullSync) GetTotalBytes() int {
 	return f.ReceivedBytes + f.SentBytes
+}
+
+func (f *fullSync) GetSetAdditions() *set.Set {
+	return f.additionals
 }
