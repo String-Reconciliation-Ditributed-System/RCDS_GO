@@ -44,6 +44,9 @@ func (f *fullSync) DeleteElement(elem interface{}) error {
 
 // SyncClient compares the digest of the local and the remote set and only transfer the entire set when the digests are different.
 func (f *fullSync) SyncClient(ip string, port int) error {
+	// refresh additionals at each sync session.
+	f.additionals = set.New()
+
 	client, err := genSync.NewTcpConnection(ip, port)
 	if err != nil {
 		return err
@@ -123,6 +126,9 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 }
 
 func (f *fullSync) SyncServer(ip string, port int) error {
+	// refresh additionals at each sync session.
+	f.additionals = set.New()
+
 	server, err := genSync.NewTcpConnection(ip, port)
 	if err != nil {
 		return err

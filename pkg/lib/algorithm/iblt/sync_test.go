@@ -51,6 +51,8 @@ func TestWithDataLen(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedSet := set.New()
+		expectedClientExtra := set.New()
+		expectedServerExtra := set.New()
 		for i := 0; i < tt.intersectionSize; i++ {
 			td := []byte(rand.String(tt.dataLen))
 			err = server.AddElement(td)
@@ -65,6 +67,7 @@ func TestWithDataLen(t *testing.T) {
 			err = client.AddElement(td)
 			require.NoError(t, err)
 			expectedSet.InsertKey(td)
+			expectedClientExtra.InsertKey(td)
 		}
 
 		for i := 0; i < tt.serverSetSize-tt.intersectionSize; i++ {
@@ -72,6 +75,7 @@ func TestWithDataLen(t *testing.T) {
 			err = server.AddElement(td)
 			require.NoError(t, err)
 			expectedSet.InsertKey(td)
+			expectedServerExtra.InsertKey(td)
 		}
 
 		var wg sync.WaitGroup
@@ -84,9 +88,12 @@ func TestWithDataLen(t *testing.T) {
 		err = server.SyncClient("", 8080)
 		assert.NoError(t, err)
 		wg.Wait()
-		
+
 		assert.Len(t,*client.GetSetAdditions(),tt.serverSetSize-tt.intersectionSize)
 		assert.Len(t,*server.GetSetAdditions(),tt.clientSetSize-tt.intersectionSize)
+
+		assert.EqualValues(t,*expectedClientExtra,*server.GetSetAdditions())
+		assert.EqualValues(t,*expectedServerExtra,*client.GetSetAdditions())
 
 		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
 		assert.Equal(t, server.GetTotalBytes(), client.GetTotalBytes())
