@@ -78,12 +78,9 @@ func TestNewFullSetSync(t *testing.T) {
 		err = server.SyncClient("", 8080)
 		assert.NoError(t, err)
 		wg.Wait()
-		cadd, err := client.GetSetAdditions()
-		assert.NoError(t, err)
-		sadd, err := server.GetSetAdditions()
-		assert.NoError(t, err)
-		assert.Len(t, *cadd, tt.serverSetSize-tt.intersectionSize)
-		assert.Len(t, *sadd, tt.clientSetSize-tt.intersectionSize)
+
+		assert.Len(t,*client.GetSetAdditions(),tt.serverSetSize-tt.intersectionSize)
+		assert.Len(t,*server.GetSetAdditions(),tt.clientSetSize-tt.intersectionSize)
 		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
 	}
 }
