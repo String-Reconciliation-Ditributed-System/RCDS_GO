@@ -11,6 +11,7 @@ import (
 type fullSync struct {
 	*set.Set
 	additionals   *set.Set
+	syncSuccess   bool
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
@@ -43,9 +44,10 @@ func (f *fullSync) DeleteElement(elem interface{}) error {
 }
 
 // SyncClient compares the digest of the local and the remote set and only transfer the entire set when the digests are different.
-func (f *fullSync) SyncClient(ip string, port int) error {
+func (f *fullSync) SyncClient(ip string, port int) (syncErr error) {
 	// refresh additionals at each sync session.
 	f.additionals = set.New()
+	f.syncSuccess = false
 
 	client, err := genSync.NewTcpConnection(ip, port)
 	if err != nil {
@@ -56,6 +58,9 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 		return err
 	}
 	defer func() {
+		if syncErr == nil {
+			f.syncSuccess = true
+		}
 		f.ReceivedBytes = client.GetReceivedBytes()
 		f.SentBytes = client.GetSentBytes()
 		client.Close()
@@ -63,71 +68,83 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 
 	digest, err := f.Set.GetDigest()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	// Compare digest of the remote and local set
 	serverDigest, err := client.Receive()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 	if util.BytesToUint64(serverDigest) == digest {
 		logrus.Info("No sync operation necessary, local and remote digests are the same.")
 		_, err = client.Send([]byte{genSync.SYNC_SKIP})
 		if err != nil {
-			return err
+			syncErr = err
+			return
 		}
 		return nil
 	}
 
 	_, err = client.Send([]byte{genSync.SYNC_CONTINUE})
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	// send the number of element to expect
 	if _, err = client.Send(util.IntToBytes(f.Set.Len())); err != nil {
-		return err
+		syncErr = err
+		return
 	}
 	// send over the entire set.
 	for elem := range *f.Set {
 		if _, err = client.Send([]byte(fmt.Sprint(elem))); err != nil {
-			return err
+			syncErr = err
+			return
 		}
 	}
-	if f.FreezeLocal {
+
+	if !f.FreezeLocal {
+		_, err = client.Send([]byte{genSync.SYNC_CONTINUE})
+		if err != nil {
+			syncErr = err
+			return
+		}
+
+		setSize, err := client.Receive()
+		if err != nil {
+			syncErr = err
+			return
+		}
+
+		for i := 0; i < util.BytesToInt(setSize); i++ {
+			d, err := client.Receive()
+			if err != nil {
+				syncErr = err
+				return
+			}
+			f.additionals.InsertKey(d)
+			f.AddElement(d)
+		}
+	} else {
 		logrus.Info("Client is freezing local set and skipping set update.")
 		_, err = client.Send([]byte{genSync.SYNC_SKIP})
 		if err != nil {
-			return err
+			syncErr = err
+			return
 		}
-		return nil
 	}
 
-	_, err = client.Send([]byte{genSync.SYNC_CONTINUE})
-	if err != nil {
-		return err
-	}
-
-	setSize, err := client.Receive()
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < util.BytesToInt(setSize); i++ {
-		d, err := client.Receive()
-		if err != nil {
-			return err
-		}
-		f.additionals.InsertKey(d)
-		f.AddElement(d)
-	}
-	return nil
+	return
 }
 
-func (f *fullSync) SyncServer(ip string, port int) error {
+func (f *fullSync) SyncServer(ip string, port int) (syncErr error) {
 	// refresh additionals at each sync session.
 	f.additionals = set.New()
+	f.syncSuccess = false
 
 	server, err := genSync.NewTcpConnection(ip, port)
 	if err != nil {
@@ -138,6 +155,9 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 		return err
 	}
 	defer func() {
+		if syncErr == nil {
+			f.syncSuccess = true
+		}
 		f.ReceivedBytes = server.GetReceivedBytes()
 		f.SentBytes = server.GetSentBytes()
 		server.Close()
@@ -145,36 +165,41 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 
 	digest, err := f.Set.GetDigest()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	// Compare digest of the remote and local set
 	_, err = server.Send(util.Uint64ToBytes(digest))
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	syncStatus, err := server.Receive()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	if len(syncStatus) == 1 && syncStatus[0] == genSync.SYNC_SKIP {
 		logrus.Info("No sync operation necessary, local and remote digests are the same.")
-		return nil
+		return
 	}
 
 	// Create a temp set to extract the difference between the local and the remote set.
 	tempSet := set.New()
 	setSize, err := server.Receive()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
 
 	for i := 0; i < util.BytesToInt(setSize); i++ {
 		d, err := server.Receive()
 		if err != nil {
-			return err
+			syncErr = err
+			return
 		}
 		tempSet.InsertKey(d)
 	}
@@ -189,25 +214,28 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 
 	syncStatus, err = server.Receive()
 	if err != nil {
-		return err
+		syncErr = err
+		return
 	}
-	if len(syncStatus) == 1 && syncStatus[0] == genSync.SYNC_SKIP {
+	if len(syncStatus) == 1 && syncStatus[0] != genSync.SYNC_SKIP {
+		// Send diff from server - client to client
+		diff := f.Set.Difference(tempSet)
+		// send the number of element to expect
+		if _, err = server.Send(util.IntToBytes(diff.Len())); err != nil {
+			syncErr = err
+			return
+		}
+		for elem := range *diff {
+			if _, err = server.Send([]byte(fmt.Sprint(elem))); err != nil {
+				syncErr = err
+				return
+			}
+		}
+	} else {
 		logrus.Info("Client is freezing local, skipping the rest of the sync...")
-		return nil
 	}
 
-	// Send diff from server - client to client
-	diff := f.Set.Difference(tempSet)
-	// send the number of element to expect
-	if _, err = server.Send(util.IntToBytes(diff.Len())); err != nil {
-		return err
-	}
-	for elem := range *diff {
-		if _, err = server.Send([]byte(fmt.Sprint(elem))); err != nil {
-			return err
-		}
-	}
-	return nil
+	return
 }
 
 func (f *fullSync) GetLocalSet() *set.Set {
@@ -226,6 +254,9 @@ func (f *fullSync) GetTotalBytes() int {
 	return f.ReceivedBytes + f.SentBytes
 }
 
-func (f *fullSync) GetSetAdditions() *set.Set {
-	return f.additionals
+func (f *fullSync) GetSetAdditions() (*set.Set, error) {
+	if !f.syncSuccess {
+		return nil, fmt.Errorf("error geeting addtionals to the local set, last sync failed")
+	}
+	return f.additionals, nil
 }
