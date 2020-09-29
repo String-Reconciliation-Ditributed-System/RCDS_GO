@@ -19,6 +19,8 @@ type Connection interface {
 	ReceiveBytesSlice() ([][]byte, error)
 	SendSkipSyncBoolWithInfo(skipSync bool, format string, args ...interface{}) error
 	ReceiveSkipSyncBoolWithInfo(format string, args ...interface{}) (bool, error)
+	SendSyncStatus(syncStatus uint8) error
+	ReceiveSyncStatus() (uint8, error)
 	Close() error
 	GetIp() string
 	GetPort() string
@@ -180,6 +182,22 @@ func (s *socketConnection) ReceiveSkipSyncBoolWithInfo(format string, args ...in
 	}
 
 	return false, fmt.Errorf("error receiving skip sync signal")
+}
+
+func (s *socketConnection) SendSyncStatus(syncStatus uint8) error {
+	_, err := s.Send([]byte{syncStatus})
+	return err
+}
+
+func (s *socketConnection) ReceiveSyncStatus() (uint8, error) {
+	syncStatus, err := s.Receive()
+	if err != nil {
+		return 0, err
+	}
+	if len(syncStatus) == 1 {
+		return syncStatus[0], nil
+	}
+	return 0, fmt.Errorf("received unknown sync status: %v, sync status should not be more than 1 byte", syncStatus)
 }
 
 func (s *socketConnection) Close() error {
