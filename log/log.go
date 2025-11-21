@@ -3,7 +3,7 @@ package log
 import (
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
-	logger "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logger "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // SetLogLevel sets the level of log for display in command line using zapcore.Levels ("debug", "info", "warn",
