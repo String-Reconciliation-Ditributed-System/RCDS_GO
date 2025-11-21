@@ -12,10 +12,15 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   e2e-test:
     name: End-to-End Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -48,6 +53,8 @@ jobs:
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5
