@@ -5,7 +5,7 @@ import (
 
 	rbtree "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
-	logger "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logger "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )

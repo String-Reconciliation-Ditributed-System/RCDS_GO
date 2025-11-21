@@ -1,0 +1,19 @@
+apiVersion: rcds.distributed-system.io/v1
+kind: RCDS
+metadata:
+  name: rcds-sample
+  namespace: default
+spec:
+  replicas: 3
+  algorithm: iblt
+  port: 8080
+  logLevel: info
+  resources:
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+  persistence:
+    enabled: false

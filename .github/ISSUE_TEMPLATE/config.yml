@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/discussions
+    about: Ask questions or discuss ideas in GitHub Discussions
+  - name: Documentation
+    url: https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/tree/master/docs
+    about: Check out our documentation

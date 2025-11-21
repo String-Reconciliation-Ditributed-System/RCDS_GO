@@ -1,0 +1,143 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rcds.rcds.distributed-system.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.0
+spec:
+  group: rcds.distributed-system.io
+  names:
+    kind: RCDS
+    listKind: RCDSList
+    plural: rcds
+    singular: rcds
+    shortNames:
+    - rcd
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        description: RCDS is the Schema for the RCDS API
+        type: object
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object.'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents.'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RCDSSpec defines the desired state of RCDS
+            type: object
+            properties:
+              replicas:
+                description: Number of RCDS instances to run
+                type: integer
+                minimum: 1
+                default: 1
+              algorithm:
+                description: Set reconciliation algorithm to use (iblt, cpi, full)
+                type: string
+                enum:
+                - iblt
+                - cpi
+                - full
+                default: iblt
+              port:
+                description: Port to listen on
+                type: integer
+                minimum: 1024
+                maximum: 65535
+                default: 8080
+              resources:
+                description: Resource requirements for each instance
+                type: object
+                properties:
+                  limits:
+                    type: object
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  requests:
+                    type: object
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+              logLevel:
+                description: Log level (debug, info, warn, error)
+                type: string
+                enum:
+                - debug
+                - info
+                - warn
+                - error
+                default: info
+              persistence:
+                description: Persistence configuration
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    default: false
+                  storageClass:
+                    type: string
+                  size:
+                    type: string
+                    default: 1Gi
+          status:
+            description: RCDSStatus defines the observed state of RCDS
+            type: object
+            properties:
+              replicas:
+                description: Current number of replicas
+                type: integer
+              readyReplicas:
+                description: Number of ready replicas
+                type: integer
+              conditions:
+                description: Conditions represent the latest available observations
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+    subresources:
+      status: {}
+      scale:
+        specReplicasPath: .spec.replicas
+        statusReplicasPath: .status.replicas
+        labelSelectorPath: .status.labelSelector
+    additionalPrinterColumns:
+    - name: Replicas
+      type: integer
+      jsonPath: .spec.replicas
+    - name: Ready
+      type: integer
+      jsonPath: .status.readyReplicas
+    - name: Algorithm
+      type: string
+      jsonPath: .spec.algorithm
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
