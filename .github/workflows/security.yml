@@ -24,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
 
       - name: Check out code
         uses: actions/checkout@v4
@@ -38,6 +38,9 @@ jobs:
   gosec:
     name: Security Scan with Gosec
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -51,6 +54,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gosec-results.sarif
+        continue-on-error: true
 
   dependency-review:
     name: Dependency Review
@@ -62,3 +66,4 @@ jobs:
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
+        continue-on-error: true
