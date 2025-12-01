@@ -3,52 +3,72 @@ package genSync
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestNewTcpConnection(t *testing.T) {
-	server, err := NewTcpConnection("", 8080)
-	assert.NoError(t, err)
-	client, err := NewTcpConnection("", 8080)
-	assert.NoError(t, err)
-
 	ClientServertest := func(data []byte) {
 		var wg sync.WaitGroup
+		
+		// Use a unique port for each test to avoid conflicts
+		testPort := 9000 + rand.IntnRange(1000, 9000)
+		testServer, err := NewTcpConnection("", testPort)
+		require.NoError(t, err, "Failed to create test server")
+		testClient, err := NewTcpConnection("", testPort)
+		require.NoError(t, err, "Failed to create test client")
 
 		wg.Add(1)
 		go func() {
-			err = client.Connect()
-			assert.NoError(t, err)
+			defer wg.Done()
+			// Give server time to start listening
+			time.Sleep(100 * time.Millisecond)
+			
+			err := testClient.Connect()
+			if !assert.NoError(t, err, "Client failed to connect") {
+				return
+			}
 
-			_, err = client.Send(data)
-			assert.NoError(t, err)
+			_, err = testClient.Send(data)
+			if !assert.NoError(t, err, "Client failed to send") {
+				testClient.Close()
+				return
+			}
 
-			received, err := client.Receive()
-			assert.Equal(t, data, received)
-			assert.NoError(t, err)
+			received, err := testClient.Receive()
+			if assert.NoError(t, err, "Client failed to receive") {
+				assert.Equal(t, data, received)
+			}
 
-			err = client.Close()
-			assert.NoError(t, err)
-			wg.Done()
+			testClient.Close()
 		}()
 
 		wg.Add(1)
 		go func() {
-			err = server.Listen()
-			assert.NoError(t, err)
+			defer wg.Done()
+			
+			err := testServer.Listen()
+			if !assert.NoError(t, err, "Server failed to listen") {
+				return
+			}
 
-			received, err := server.Receive()
-			assert.NoError(t, err)
+			received, err := testServer.Receive()
+			if !assert.NoError(t, err, "Server failed to receive") {
+				testServer.Close()
+				return
+			}
 			assert.Equal(t, data, received)
 
-			_, err = server.Send(data)
-			assert.NoError(t, err)
+			_, err = testServer.Send(data)
+			if !assert.NoError(t, err, "Server failed to send") {
+				testServer.Close()
+				return
+			}
 
-			err = server.Close()
-			assert.NoError(t, err)
-			wg.Done()
+			testServer.Close()
 		}()
 		wg.Wait()
 	}
