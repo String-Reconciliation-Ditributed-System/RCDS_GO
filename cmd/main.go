@@ -73,12 +73,24 @@ func runServer() {
 			}
 		case "--port":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &port)
+				_, err := fmt.Sscanf(args[i+1], "%d", &port)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: Invalid port number '%s': %v\n", args[i+1], err)
+					os.Exit(1)
+				}
+				if port < 1 || port > 65535 {
+					fmt.Fprintf(os.Stderr, "Error: Port number must be between 1 and 65535, got %d\n", port)
+					os.Exit(1)
+				}
 				i++
 			}
 		case "--algorithm":
 			if i+1 < len(args) {
 				algorithm = args[i+1]
+				if algorithm != "rcds" && algorithm != "iblt" && algorithm != "full" {
+					fmt.Fprintf(os.Stderr, "Error: Invalid algorithm '%s'. Valid options: rcds, iblt, full\n", algorithm)
+					os.Exit(1)
+				}
 				i++
 			}
 		}
@@ -109,12 +121,24 @@ func runClient() {
 			}
 		case "--port":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &port)
+				_, err := fmt.Sscanf(args[i+1], "%d", &port)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: Invalid port number '%s': %v\n", args[i+1], err)
+					os.Exit(1)
+				}
+				if port < 1 || port > 65535 {
+					fmt.Fprintf(os.Stderr, "Error: Port number must be between 1 and 65535, got %d\n", port)
+					os.Exit(1)
+				}
 				i++
 			}
 		case "--algorithm":
 			if i+1 < len(args) {
 				algorithm = args[i+1]
+				if algorithm != "rcds" && algorithm != "iblt" && algorithm != "full" {
+					fmt.Fprintf(os.Stderr, "Error: Invalid algorithm '%s'. Valid options: rcds, iblt, full\n", algorithm)
+					os.Exit(1)
+				}
 				i++
 			}
 		}

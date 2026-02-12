@@ -15,7 +15,7 @@ type ErrUnsupportedType struct {
 }
 
 func (e *ErrUnsupportedType) Error() string {
-	return fmt.Sprintf("input %v is not supported for converting to 'Big/Int' as type %s", e.Value, e.Type)
+	return fmt.Sprintf("input %v is not supported for converting to 'big.Int' as type %s", e.Value, e.Type)
 }
 
 func ToBigInt(input interface{}) (*bigint, error) {
