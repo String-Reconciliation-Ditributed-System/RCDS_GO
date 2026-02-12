@@ -1,4 +1,3 @@
-//go:build e2e
 // +build e2e
 
 package e2e
@@ -26,7 +25,7 @@ func TestLocalDeployment(t *testing.T) {
 	binaryPath := "../../bin/rcds"
 	_, err = os.Stat(binaryPath)
 	require.NoError(t, err, "Binary not found at %s", binaryPath)
-
+	
 	// Make binary executable
 	err = os.Chmod(binaryPath, 0755)
 	require.NoError(t, err, "Failed to make binary executable")
@@ -36,14 +35,14 @@ func TestLocalDeployment(t *testing.T) {
 func TestServerStartStop(t *testing.T) {
 	// Skip this test as the binary doesn't have server/client commands yet
 	t.Skip("Skipping - requires server/client implementation in main binary")
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Start server
 	cmd := exec.CommandContext(ctx, "../../bin/rcds")
 	cmd.Env = append(os.Environ(), "RCDS_PORT=8080")
-
+	
 	err := cmd.Start()
 	require.NoError(t, err, "Failed to start server")
 
@@ -58,26 +57,26 @@ func TestServerStartStop(t *testing.T) {
 // TestHealthCheck tests the basic health of the deployed service
 func TestHealthCheck(t *testing.T) {
 	t.Log("Health check test - verifying binary exists and is executable")
-
+	
 	binaryPath := "../../bin/rcds"
-
+	
 	// Check binary exists
 	info, err := os.Stat(binaryPath)
 	require.NoError(t, err, "Binary not found")
-
+	
 	// Check it's a file
 	require.False(t, info.IsDir(), "Binary path is a directory")
-
+	
 	// Check file size is reasonable
 	require.Greater(t, info.Size(), int64(0), "Binary file is empty")
-
+	
 	t.Logf("Binary verified: size=%d bytes, mode=%v", info.Size(), info.Mode())
 }
 
 // TestConcurrentConnections tests multiple concurrent connections
 func TestConcurrentConnections(t *testing.T) {
 	t.Skip("Skipping - requires actual server/client implementation")
-
+	
 	// This test would:
 	// 1. Start a server
 	// 2. Create multiple client connections
@@ -88,7 +87,7 @@ func TestConcurrentConnections(t *testing.T) {
 // TestDataSynchronization tests end-to-end data sync
 func TestDataSynchronization(t *testing.T) {
 	t.Skip("Skipping - requires actual server/client implementation")
-
+	
 	// This test would:
 	// 1. Start server with initial dataset
 	// 2. Start client with different dataset
@@ -99,14 +98,14 @@ func TestDataSynchronization(t *testing.T) {
 // TestLargeDataset tests with a large dataset
 func TestLargeDataset(t *testing.T) {
 	t.Skip("Skipping - requires actual implementation")
-
+	
 	// This test would verify performance with large datasets
 }
 
 // TestRecoveryFromFailure tests failure recovery scenarios
 func TestRecoveryFromFailure(t *testing.T) {
 	t.Skip("Skipping - requires actual implementation")
-
+	
 	// This test would:
 	// 1. Start sync operation
 	// 2. Simulate failure mid-sync

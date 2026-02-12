@@ -1,24 +1,14 @@
 package genSync
 
 import (
-	"fmt"
+	"log"
 	"math/big"
 	"reflect"
 )
 
 type bigint big.Int
 
-// ErrUnsupportedType is returned when ToBigInt receives a type other than string, uint64, or []byte.
-type ErrUnsupportedType struct {
-	Value interface{}
-	Type  string
-}
-
-func (e *ErrUnsupportedType) Error() string {
-	return fmt.Sprintf("input %v is not supported for converting to 'big.Int' as type %s", e.Value, e.Type)
-}
-
-func ToBigInt(input interface{}) (*bigint, error) {
+func ToBigInt(input interface{}) *bigint {
 	zz := new(big.Int)
 	switch input.(type) {
 	case string:
@@ -29,12 +19,9 @@ func ToBigInt(input interface{}) (*bigint, error) {
 	case []byte:
 		zz.SetBytes(input.([]byte))
 	default:
-		return nil, &ErrUnsupportedType{
-			Value: input,
-			Type:  reflect.TypeOf(input).Name(),
-		}
+		log.Panicf("input %v is not supported for converting to 'Big/Int' as type %s", input, reflect.TypeOf(input).Name())
 	}
-	return (*bigint)(zz), nil
+	return (*bigint)(zz)
 }
 
 func (b *bigint) ToString() string {

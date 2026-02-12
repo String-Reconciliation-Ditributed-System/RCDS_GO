@@ -13,7 +13,7 @@ import (
 func TestNewTcpConnection(t *testing.T) {
 	ClientServertest := func(data []byte) {
 		var wg sync.WaitGroup
-
+		
 		// Use a unique port for each test to avoid conflicts
 		testPort := 9000 + rand.IntnRange(1000, 9000)
 		testServer, err := NewTcpConnection("", testPort)
@@ -26,7 +26,7 @@ func TestNewTcpConnection(t *testing.T) {
 			defer wg.Done()
 			// Give server time to start listening
 			time.Sleep(100 * time.Millisecond)
-
+			
 			err := testClient.Connect()
 			if !assert.NoError(t, err, "Client failed to connect") {
 				return
@@ -49,7 +49,7 @@ func TestNewTcpConnection(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
+			
 			err := testServer.Listen()
 			if !assert.NoError(t, err, "Server failed to listen") {
 				return
