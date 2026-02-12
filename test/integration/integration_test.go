@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package integration
@@ -68,19 +69,19 @@ func TestHashFunctions(t *testing.T) {
 // TestHashStringConversion tests string to hash conversion
 func TestHashStringConversion(t *testing.T) {
 	testString := "test string"
-	
+
 	hashData := algorithm.HashString(testString)
-	
+
 	// Test ToUint64
 	hash64, err := hashData.ToUint64()
 	require.NoError(t, err)
 	require.NotEqual(t, uint64(0), hash64, "Hash should not be zero")
-	
+
 	// Test ToUint32
 	hash32, err := hashData.ToUint32()
 	require.NoError(t, err)
 	require.NotEqual(t, uint32(0), hash32, "Hash should not be zero")
-	
+
 	// Test ToBytes
 	hashBytes, err := hashData.ToBytes()
 	require.NoError(t, err)
@@ -103,7 +104,7 @@ func TestRCDSWithDifferentAlgorithms(t *testing.T) {
 	t.Skip("Skipping - requires algorithm selection implementation")
 
 	algorithms := []string{"IBLT", "CPI", "FullSync"}
-	
+
 	for _, algo := range algorithms {
 		t.Run(algo, func(t *testing.T) {
 			// Test RCDS with each algorithm
@@ -114,16 +115,16 @@ func TestRCDSWithDifferentAlgorithms(t *testing.T) {
 // TestConcurrentOperations tests thread safety
 func TestConcurrentOperations(t *testing.T) {
 	t.Skip("Skipping - Set implementation is not thread-safe (maps are not safe for concurrent use)")
-	
+
 	// Note: This test reveals that the current Set implementation using Go's map
 	// is not thread-safe. This is a known limitation and would need mutex protection
 	// if concurrent access is required.
-	
+
 	s := set.New()
 
 	// Launch multiple goroutines to insert concurrently
 	done := make(chan bool)
-	
+
 	for i := 0; i < 10; i++ {
 		go func(offset int) {
 			for j := 0; j < 100; j++ {

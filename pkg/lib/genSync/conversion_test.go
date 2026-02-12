@@ -16,7 +16,8 @@ func TestConversionBetweenStringAndBigInt(t *testing.T) {
 		"123 Test",
 		"!@#$",
 	} {
-		bytes := ToBigInt(testString)
+		bytes, err := ToBigInt(testString)
+		assert.NoError(t, err)
 		assert.Equal(t, testString, bytes.ToString())
 	}
 }
@@ -27,7 +28,8 @@ func TestConversionBetweenUint64AndBigInt(t *testing.T) {
 		1235414213,
 		math.MaxUint64,
 	} {
-		bytes := ToBigInt(test)
+		bytes, err := ToBigInt(test)
+		assert.NoError(t, err)
 		assert.Equal(t, test, bytes.ToUint64())
 	}
 }
@@ -42,7 +44,22 @@ func TestConversionBetweenBytesAndBigInt(t *testing.T) {
 		make([]byte, 1024),
 	} {
 		rand.Read(test)
-		bytes := ToBigInt(test)
+		bytes, err := ToBigInt(test)
+		assert.NoError(t, err)
 		assert.Equal(t, test, bytes.ToBytes())
 	}
+}
+
+func TestConversionUnsupportedType(t *testing.T) {
+	// Test with an unsupported type
+	unsupportedInput := 123 // int instead of uint64
+	_, err := ToBigInt(unsupportedInput)
+	assert.Error(t, err)
+	assert.IsType(t, &ErrUnsupportedType{}, err)
+
+	// Test with another unsupported type
+	unsupportedInput2 := 3.14 // float64
+	_, err2 := ToBigInt(unsupportedInput2)
+	assert.Error(t, err2)
+	assert.IsType(t, &ErrUnsupportedType{}, err2)
 }

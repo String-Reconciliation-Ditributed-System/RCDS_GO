@@ -1,3 +1,4 @@
+//go:build cloud
 // +build cloud
 
 package cloud
@@ -19,7 +20,7 @@ func TestAWSDeployment(t *testing.T) {
 	}
 
 	t.Logf("Testing AWS deployment in region: %s", awsRegion)
-	
+
 	// Test would verify:
 	// 1. ECS/EKS cluster configuration
 	// 2. Load balancer setup
@@ -36,7 +37,7 @@ func TestAzureDeployment(t *testing.T) {
 	}
 
 	t.Logf("Testing Azure deployment in subscription: %s", azureSubscription)
-	
+
 	// Test would verify:
 	// 1. AKS cluster configuration
 	// 2. Azure Load Balancer setup
@@ -53,7 +54,7 @@ func TestGCloudDeployment(t *testing.T) {
 	}
 
 	t.Logf("Testing GCloud deployment in project: %s", gcloudProject)
-	
+
 	// Test would verify:
 	// 1. GKE cluster configuration
 	// 2. Load balancer setup
@@ -64,7 +65,7 @@ func TestGCloudDeployment(t *testing.T) {
 // TestMultiCloudFailover tests failover between cloud providers
 func TestMultiCloudFailover(t *testing.T) {
 	t.Skip("Skipping - requires multi-cloud infrastructure")
-	
+
 	// Test would verify:
 	// 1. Primary cloud failure detection
 	// 2. Automatic failover to secondary
@@ -75,7 +76,7 @@ func TestMultiCloudFailover(t *testing.T) {
 // TestCloudNetworking tests networking across cloud deployments
 func TestCloudNetworking(t *testing.T) {
 	t.Skip("Skipping - requires cloud infrastructure")
-	
+
 	// Test would verify:
 	// 1. VPC/VNet configuration
 	// 2. Cross-region connectivity
@@ -86,7 +87,7 @@ func TestCloudNetworking(t *testing.T) {
 // TestCloudScaling tests auto-scaling in cloud environments
 func TestCloudScaling(t *testing.T) {
 	t.Skip("Skipping - requires cloud infrastructure")
-	
+
 	// Test would verify:
 	// 1. Load increases trigger scale-up
 	// 2. Load decreases trigger scale-down
@@ -97,7 +98,7 @@ func TestCloudScaling(t *testing.T) {
 // TestCloudMonitoring tests monitoring integration
 func TestCloudMonitoring(t *testing.T) {
 	t.Skip("Skipping - requires cloud infrastructure")
-	
+
 	// Test would verify:
 	// 1. CloudWatch/Azure Monitor/Stackdriver integration
 	// 2. Metrics collection
@@ -123,18 +124,18 @@ func checkCloudProvider(t *testing.T, provider string) bool {
 func TestCloudProviderAvailability(t *testing.T) {
 	providers := []string{"aws", "azure", "gcloud"}
 	available := []string{}
-	
+
 	for _, provider := range providers {
 		if checkCloudProvider(t, provider) {
 			available = append(available, provider)
 		}
 	}
-	
+
 	t.Logf("Available cloud providers: %v", available)
-	
+
 	if len(available) == 0 {
 		t.Skip("No cloud providers configured")
 	}
-	
+
 	assert.Greater(t, len(available), 0, "At least one cloud provider should be configured for cloud tests")
 }
