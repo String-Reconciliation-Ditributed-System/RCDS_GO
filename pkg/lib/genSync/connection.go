@@ -82,7 +82,7 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 
 func (s *socketConnection) Listen() error {
 	var err error
-	
+
 	// Create ListenConfig with SO_REUSEADDR to allow quick port reuse
 	lc := &net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
@@ -96,12 +96,12 @@ func (s *socketConnection) Listen() error {
 			return sockOptErr
 		},
 	}
-	
+
 	listener, err := lc.Listen(context.Background(), "tcp", s.tcpAddress.String())
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
-	
+
 	s.listener = listener.(*net.TCPListener)
 	logrus.Infof("listening on: %v", s.tcpAddress)
 
