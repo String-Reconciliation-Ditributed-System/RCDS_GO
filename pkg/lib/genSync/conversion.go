@@ -8,7 +8,7 @@ import (
 
 type bigint big.Int
 
-// ErrUnsupportedType is returned when a type cannot be converted to big.Int
+// ErrUnsupportedType is returned when ToBigInt receives a type other than string, uint64, or []byte.
 type ErrUnsupportedType struct {
 	Value interface{}
 	Type  string

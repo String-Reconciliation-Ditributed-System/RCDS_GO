@@ -57,97 +57,81 @@ func printVersion() {
 	fmt.Println("Go implementation of Recursive Content-Dependent Shingling")
 }
 
-func runServer() {
-	host := "127.0.0.1"
-	port := 8080
-	algorithm := "iblt"
+// networkConfig holds network configuration parsed from command-line arguments
+type networkConfig struct {
+	host      string
+	port      int
+	algorithm string
+}
 
-	// Parse server options
+// parseNetworkFlags parses common network flags (--host, --port, --algorithm) from command-line arguments
+func parseNetworkFlags() (*networkConfig, error) {
+	config := &networkConfig{
+		host:      "127.0.0.1",
+		port:      8080,
+		algorithm: "iblt",
+	}
+
 	args := os.Args[2:]
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--host":
 			if i+1 < len(args) {
-				host = args[i+1]
+				config.host = args[i+1]
 				i++
 			}
 		case "--port":
 			if i+1 < len(args) {
-				_, err := fmt.Sscanf(args[i+1], "%d", &port)
+				_, err := fmt.Sscanf(args[i+1], "%d", &config.port)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: Invalid port number '%s': %v\n", args[i+1], err)
-					os.Exit(1)
+					return nil, fmt.Errorf("invalid port number '%s': %v", args[i+1], err)
 				}
-				if port < 1 || port > 65535 {
-					fmt.Fprintf(os.Stderr, "Error: Port number must be between 1 and 65535, got %d\n", port)
-					os.Exit(1)
+				if config.port < 1 || config.port > 65535 {
+					return nil, fmt.Errorf("port number must be between 1 and 65535, got %d", config.port)
 				}
 				i++
 			}
 		case "--algorithm":
 			if i+1 < len(args) {
-				algorithm = args[i+1]
-				if algorithm != "rcds" && algorithm != "iblt" && algorithm != "full" {
-					fmt.Fprintf(os.Stderr, "Error: Invalid algorithm '%s'. Valid options: rcds, iblt, full\n", algorithm)
-					os.Exit(1)
+				config.algorithm = args[i+1]
+				if config.algorithm != "rcds" && config.algorithm != "iblt" && config.algorithm != "full" {
+					return nil, fmt.Errorf("invalid algorithm '%s'. Valid options: rcds, iblt, full", config.algorithm)
 				}
 				i++
 			}
 		}
 	}
 
+	return config, nil
+}
+
+func runServer() {
+	config, err := parseNetworkFlags()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Starting RCDS server...\n")
-	fmt.Printf("  Host: %s\n", host)
-	fmt.Printf("  Port: %d\n", port)
-	fmt.Printf("  Algorithm: %s\n", algorithm)
+	fmt.Printf("  Host: %s\n", config.host)
+	fmt.Printf("  Port: %d\n", config.port)
+	fmt.Printf("  Algorithm: %s\n", config.algorithm)
 	fmt.Println("\nNote: Full server implementation coming soon.")
 	fmt.Println("For now, please use the library directly in your Go code.")
 	fmt.Println("See README.md for usage examples.")
 }
 
 func runClient() {
-	host := "127.0.0.1"
-	port := 8080
-	algorithm := "iblt"
-
-	// Parse client options
-	args := os.Args[2:]
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--host":
-			if i+1 < len(args) {
-				host = args[i+1]
-				i++
-			}
-		case "--port":
-			if i+1 < len(args) {
-				_, err := fmt.Sscanf(args[i+1], "%d", &port)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: Invalid port number '%s': %v\n", args[i+1], err)
-					os.Exit(1)
-				}
-				if port < 1 || port > 65535 {
-					fmt.Fprintf(os.Stderr, "Error: Port number must be between 1 and 65535, got %d\n", port)
-					os.Exit(1)
-				}
-				i++
-			}
-		case "--algorithm":
-			if i+1 < len(args) {
-				algorithm = args[i+1]
-				if algorithm != "rcds" && algorithm != "iblt" && algorithm != "full" {
-					fmt.Fprintf(os.Stderr, "Error: Invalid algorithm '%s'. Valid options: rcds, iblt, full\n", algorithm)
-					os.Exit(1)
-				}
-				i++
-			}
-		}
+	config, err := parseNetworkFlags()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("Starting RCDS client...\n")
-	fmt.Printf("  Host: %s\n", host)
-	fmt.Printf("  Port: %d\n", port)
-	fmt.Printf("  Algorithm: %s\n", algorithm)
+	fmt.Printf("  Host: %s\n", config.host)
+	fmt.Printf("  Port: %d\n", config.port)
+	fmt.Printf("  Algorithm: %s\n", config.algorithm)
 	fmt.Println("\nNote: Full client implementation coming soon.")
 	fmt.Println("For now, please use the library directly in your Go code.")
 	fmt.Println("See README.md for usage examples.")
