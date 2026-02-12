@@ -34,5 +34,4 @@ issues:
 
 run:
   timeout: 5m
-  skip-dirs:
-    - vendor
+  skip-dirs-use-default: true
