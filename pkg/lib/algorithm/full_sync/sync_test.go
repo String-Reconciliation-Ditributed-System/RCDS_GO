@@ -71,8 +71,8 @@ func TestNewFullSetSync(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 9080)
-			assert.NoError(t, err)
+			syncErr := client.SyncServer("", 9080)
+			assert.NoError(t, syncErr)
 			wg.Done()
 		}()
 		err = server.SyncClient("", 9080)

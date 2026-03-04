@@ -1,8 +1,8 @@
 package genSync
 
 import (
+	"crypto/rand"
 	"math"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,7 +43,8 @@ func TestConversionBetweenBytesAndBigInt(t *testing.T) {
 		make([]byte, 512),
 		make([]byte, 1024),
 	} {
-		rand.Read(test)
+		_, err := rand.Read(test)
+		assert.NoError(t, err)
 		bytes, err := ToBigInt(test)
 		assert.NoError(t, err)
 		assert.Equal(t, test, bytes.ToBytes())
