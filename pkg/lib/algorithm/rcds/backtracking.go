@@ -76,7 +76,16 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 			i = i - 1
 		}
 		previousEdge = currentEdge
-		for tail, count := range tails {
+
+		// Sort tail keys to ensure deterministic iteration order
+		tailKeys := make([]uint64, 0, len(tails))
+		for tail := range tails {
+			tailKeys = append(tailKeys, tail)
+		}
+		sort.Slice(tailKeys, func(i, j int) bool { return tailKeys[i] < tailKeys[j] })
+
+		for _, tail := range tailKeys {
+			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
 			tailChangeHistory[i] = tailChangeHistory[i-1]
@@ -152,7 +161,16 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 			i = i - 1
 		}
 		previousEdge = currentEdge
-		for tail, count := range tails {
+
+		// Sort tail keys to ensure deterministic iteration order
+		tailKeys := make([]uint64, 0, len(tails))
+		for tail := range tails {
+			tailKeys = append(tailKeys, tail)
+		}
+		sort.Slice(tailKeys, func(i, j int) bool { return tailKeys[i] < tailKeys[j] })
+
+		for _, tail := range tailKeys {
+			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
 			tailChangeHistory[i] = tailChangeHistory[i-1]
