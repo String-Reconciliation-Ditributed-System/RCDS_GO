@@ -78,11 +78,7 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 		previousEdge = currentEdge
 
 		// Sort tail keys to ensure deterministic iteration order
-		tailKeys := make([]uint64, 0, len(tails))
-		for tail := range tails {
-			tailKeys = append(tailKeys, tail)
-		}
-		sort.Slice(tailKeys, func(i, j int) bool { return tailKeys[i] < tailKeys[j] })
+		tailKeys := getSortedTailKeys(tails)
 
 		for _, tail := range tailKeys {
 			count := tails[tail]
@@ -163,11 +159,7 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 		previousEdge = currentEdge
 
 		// Sort tail keys to ensure deterministic iteration order
-		tailKeys := make([]uint64, 0, len(tails))
-		for tail := range tails {
-			tailKeys = append(tailKeys, tail)
-		}
-		sort.Slice(tailKeys, func(i, j int) bool { return tailKeys[i] < tailKeys[j] })
+		tailKeys := getSortedTailKeys(tails)
 
 		for _, tail := range tailKeys {
 			count := tails[tail]
@@ -208,6 +200,16 @@ func (s *hashShingleSet) getTailEdges(firstEdge uint64) shingleTailCount {
 		return *tail
 	}
 	return nil
+}
+
+// getSortedTailKeys returns tail keys sorted in ascending order for deterministic iteration
+func getSortedTailKeys(tails shingleTailCount) []uint64 {
+	tailKeys := make([]uint64, 0, len(tails))
+	for tail := range tails {
+		tailKeys = append(tailKeys, tail)
+	}
+	sort.Slice(tailKeys, func(i, j int) bool { return tailKeys[i] < tailKeys[j] })
+	return tailKeys
 }
 
 // sort sorts the hash shingle set and its tail counts.
