@@ -65,7 +65,9 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 		i.Set.Insert(key, elem)
 
 		for j := range i.resyncIBLTs {
-			i.resyncIBLTs[j].Insert(key)
+			if err := i.resyncIBLTs[j].Insert(key); err != nil {
+				return err
+			}
 		}
 		return i.Table.Insert(key)
 	} else {
@@ -73,7 +75,9 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 	}
 	key := elem.([]byte)
 	for j := range i.resyncIBLTs {
-		i.resyncIBLTs[j].Insert(key)
+		if err := i.resyncIBLTs[j].Insert(key); err != nil {
+			return err
+		}
 	}
 	return i.Table.Insert(key)
 }
@@ -86,14 +90,18 @@ func (i *ibltSync) DeleteElement(elem interface{}) error {
 		}
 		i.Set.Remove(key)
 		for j := range i.resyncIBLTs {
-			i.resyncIBLTs[j].Delete(key)
+			if err := i.resyncIBLTs[j].Delete(key); err != nil {
+				return err
+			}
 		}
 		return i.Table.Delete(key)
 	}
 	i.Set.Remove(elem)
 	key := elem.([]byte)
 	for j := range i.resyncIBLTs {
-		i.resyncIBLTs[j].Delete(key)
+		if err := i.resyncIBLTs[j].Delete(key); err != nil {
+			return err
+		}
 	}
 	return i.Table.Delete(key)
 }

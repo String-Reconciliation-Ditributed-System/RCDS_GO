@@ -2,8 +2,9 @@ package set
 
 import (
 	"fmt"
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 	"reflect"
+
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )
 
 type Set map[interface{}]interface{}

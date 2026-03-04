@@ -2,8 +2,9 @@ package algorithm
 
 import (
 	"crypto"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHashBytesWithCryptoFunc(t *testing.T) {

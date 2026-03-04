@@ -2,6 +2,7 @@ package full_sync
 
 import (
 	"fmt"
+
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
@@ -120,7 +121,9 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 			return err
 		}
 		f.additionals.InsertKey(d)
-		f.AddElement(d)
+		if err = f.AddElement(d); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -181,7 +184,9 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 	if !f.FreezeLocal {
 		for elem := range *tempSet.Difference(f.Set) {
 			f.additionals.InsertKey(elem)
-			f.AddElement(elem)
+			if err = f.AddElement(elem); err != nil {
+				return err
+			}
 		}
 	} else {
 		logrus.Info("Server is freezing local set and skipping set update.")

@@ -1,13 +1,17 @@
 package genSync
 
 import (
+	"context"
 	"fmt"
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/util/retry"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
+
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/util/retry"
+
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
 )
 
 type Connection interface {
@@ -80,11 +84,28 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 
 func (s *socketConnection) Listen() error {
 	var err error
-	s.listener, err = net.ListenTCP("tcp", s.tcpAddress)
-	logrus.Infof("listening on: %v", s.tcpAddress)
+
+	// Create ListenConfig with SO_REUSEADDR to allow quick port reuse
+	lc := &net.ListenConfig{
+		Control: func(_, _ string, c syscall.RawConn) error {
+			var sockOptErr error
+			if controlErr := c.Control(func(fd uintptr) {
+				// Set SO_REUSEADDR to allow quick port reuse
+				sockOptErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			}); controlErr != nil {
+				return controlErr
+			}
+			return sockOptErr
+		},
+	}
+
+	listener, err := lc.Listen(context.Background(), "tcp", s.tcpAddress.String())
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
+
+	s.listener = listener.(*net.TCPListener)
+	logrus.Infof("listening on: %v", s.tcpAddress)
 
 	s.connection, err = s.listener.AcceptTCP()
 	return err
@@ -201,10 +222,15 @@ func (s *socketConnection) ReceiveSyncStatus() (uint8, error) {
 }
 
 func (s *socketConnection) Close() error {
-	if err := s.listener.Close(); err != nil {
-		logrus.Debugf("failed to close listener, %v", err)
+	if s.listener != nil {
+		if err := s.listener.Close(); err != nil {
+			logrus.Debugf("failed to close listener, %v", err)
+		}
 	}
-	return s.connection.Close()
+	if s.connection != nil {
+		return s.connection.Close()
+	}
+	return nil
 }
 
 func (s *socketConnection) GetIp() string {

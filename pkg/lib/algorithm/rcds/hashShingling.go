@@ -95,7 +95,9 @@ func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dic
 	if err != nil {
 		return nil, err
 	}
-	s.AddShingle(0, hash, 1)
+	if err = s.AddShingle(0, hash, 1); err != nil {
+		return nil, err
+	}
 
 	for i := 1; i < len(*chunks); i++ {
 		first, err := dict.AddToDict((*chunks)[i-1])
@@ -107,7 +109,9 @@ func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dic
 			return nil, err
 		}
 		if _, err = s.getShingleCount(first, second); err != nil {
-			s.AddShingle(first, second, 1)
+			if err = s.AddShingle(first, second, 1); err != nil {
+				return nil, err
+			}
 		} else {
 			if _, err = s.addShingleCount(first, second, 1); err != nil {
 				return nil, err
