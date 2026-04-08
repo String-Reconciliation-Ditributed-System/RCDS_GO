@@ -6,6 +6,15 @@ import (
 	"sort"
 )
 
+func sortedTailKeys(tails shingleTailCount) []uint64 {
+	keys := make([]uint64, 0, len(tails))
+	for k := range tails {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
 // CycleInfo contains the Eulerian cycle information including starting block digest, stepNum or number of chunks, and
 // number of cycles needed to trace.
 type CycleInfo struct {
@@ -76,7 +85,8 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 			i = i - 1
 		}
 		previousEdge = currentEdge
-		for tail, count := range tails {
+		for _, tail := range sortedTailKeys(tails) {
+			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
 			tailChangeHistory[i] = tailChangeHistory[i-1]
@@ -87,7 +97,7 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 				if _, err = tailChangeHistory[i].addShingleCount(currentEdge, tail, -1); err != nil {
 					return nil, fmt.Errorf("error changing tail count from history, %v", err)
 				}
-			} else if tailCountErr == tailCountErr && count > 0 {
+			} else if tailCountErr == ShingleNotFound && count > 0 {
 				if err = tailChangeHistory[i].AddShingle(currentEdge, tail, int(count)-1); err != nil {
 					return nil, fmt.Errorf("error adding tail count to history, %v", err)
 				}
@@ -152,7 +162,8 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 			i = i - 1
 		}
 		previousEdge = currentEdge
-		for tail, count := range tails {
+		for _, tail := range sortedTailKeys(tails) {
+			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
 			tailChangeHistory[i] = tailChangeHistory[i-1]
@@ -163,7 +174,7 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 				if _, err = tailChangeHistory[i].addShingleCount(currentEdge, tail, -1); err != nil {
 					return nil, fmt.Errorf("error changing tail count from history, %v", err)
 				}
-			} else if tailCountErr == tailCountErr && count > 0 {
+			} else if tailCountErr == ShingleNotFound && count > 0 {
 				if err = tailChangeHistory[i].AddShingle(currentEdge, tail, int(count)-1); err != nil {
 					return nil, fmt.Errorf("error adding tail count to history, %v", err)
 				}
