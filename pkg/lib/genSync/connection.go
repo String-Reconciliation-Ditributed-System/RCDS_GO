@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
 	"github.com/sirupsen/logrus"
+	"io"
 	"k8s.io/client-go/util/retry"
 	"net"
 	"strconv"
@@ -95,27 +96,22 @@ func (s *socketConnection) Receive() ([]byte, error) {
 		return nil, err
 	}
 	size := make([]byte, 8)
-	_, err := s.connection.Read(size[0:])
+	_, err := io.ReadFull(s.connection, size)
 	if err != nil {
 		return nil, err
 	}
 	s.receivedBytes += 8
 
 	sizeInt := int(util.BytesToInt64(size))
+	if sizeInt < 0 {
+		return nil, fmt.Errorf("received invalid negative payload size: %d", sizeInt)
+	}
 	res := make([]byte, sizeInt)
 
-	var sum, i int
-	for sum < sizeInt {
-		endPt := (i + 1) * bufferSize
-		if endPt > sizeInt {
-			endPt = sizeInt
-		}
-		n, err := s.connection.Read(res[sum:endPt])
-		if err != nil {
+	if sizeInt > 0 {
+		if _, err := io.ReadFull(s.connection, res); err != nil {
 			return nil, err
 		}
-		sum += n
-		i++
 	}
 	s.receivedBytes += len(res)
 
