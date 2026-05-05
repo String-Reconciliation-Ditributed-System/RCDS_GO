@@ -103,7 +103,9 @@ You can also use `--input` for the server source and `--output` for the client d
 
 - `full` is deterministic and useful as a baseline or for small datasets.
 - `iblt` is efficient when the expected symmetric difference is accurate enough.
-- `rcds` prepares content-dependent metadata while preserving the GenSync transport interface.
+- `rcds` prepares Recursive Content-Dependent Shingling metadata based on the Allerton 2019 paper. The current CLI path uses the shared GenSync/full-sync wire exchange, so treat it as research-grade rather than a complete low-bandwidth RCDS protocol.
+
+For paper background and implementation boundaries, see [PAPER.md](PAPER.md).
 
 ## Verification
 

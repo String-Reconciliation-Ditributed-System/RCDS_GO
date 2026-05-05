@@ -5,13 +5,22 @@
 
 # Recursive Content-Dependent Shingling (RCDS)
 
-RCDS is a scalable string reconciliation protocol designed for distributed systems. This Go implementation provides efficient file synchronization using set reconciliation primitives.
+RCDS_GO is a Go implementation and engineering sandbox for Recursive Content-Dependent Shingling, the string reconciliation protocol introduced by Bowen Song and Ari Trachtenberg in ["Scalable String Reconciliation by Recursive Content-Dependent Shingling"](https://ieeexplore.ieee.org/document/8919901), Allerton 2019. An open preprint is available as [arXiv:1910.00536](https://arxiv.org/abs/1910.00536).
 
 Project website: [GitHub Pages](https://string-reconciliation-ditributed-system.github.io/RCDS_GO/)
 
 ## Overview
 
-The RCDS algorithm breaks data into content-dependent chunks (shingles) and uses set reconciliation to synchronize distributed nodes. This repository includes reusable Go packages plus a production-oriented CLI for set reconciliation and exact chunked file pulls.
+The paper frames string reconciliation as the problem of bringing similar remote strings into agreement while communicating the differences, not the whole object. RCDS reduces that problem to set reconciliation by turning strings into recursively partitioned, content-dependent shingles that can be reconciled and reconstructed.
+
+This repository turns those ideas into reusable Go packages and a CLI. It includes:
+
+- RCDS metadata construction through content-dependent chunking and hash shingles.
+- IBLT and full-sync set reconciliation backends behind a shared GenSync interface.
+- Exact chunked file pull workflows with SHA-256 verification.
+- Tests, CI, Docker, Kubernetes scaffolding, and a GitHub Pages project website.
+
+See [docs/PAPER.md](docs/PAPER.md) for the research-to-code map, current implementation boundaries, and citation details.
 
 ### Key Features
 
@@ -27,6 +36,7 @@ The RCDS algorithm breaks data into content-dependent chunks (shingles) and uses
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [CLI Reference](docs/CLI.md)
+- [Paper Background](docs/PAPER.md)
 - [Usage](#usage)
 - [Architecture](#architecture)
 - [Algorithms](#algorithms)
@@ -212,11 +222,12 @@ RCDS supports multiple set reconciliation algorithms:
 
 ### RCDS (Recursive Content-Dependent Shingling)
 
-The RCDS adapter builds content-dependent chunk metadata and currently uses the shared GenSync transport workflow.
+The RCDS adapter follows the paper's front half: it builds content-dependent partitions, creates hash-shingle metadata, and keeps those structures compatible with the shared `GenSync` workflow. The current network exchange is intentionally conservative and uses the full-sync backend while the pure RCDS wire protocol is being hardened.
 
-- **Complexity**: O(log n) with respect to file size
-- **Best for**: Large files with small differences
-- **Use case**: Research and comparison of content-dependent shingling workflows
+- **Paper goal**: sublinear communication for many similar strings, especially when edits are small or clustered.
+- **Current implementation**: content-dependent metadata plus full-sync wire exchange.
+- **Best for**: research, testing content-dependent shingling behavior, and comparing reconciliation backends.
+- **Caution**: do not treat `--algorithm rcds` as a production rsync replacement yet.
 
 ### IBLT (Invertible Bloom Lookup Tables)
 
@@ -311,9 +322,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 If you use this work, please cite the relevant papers:
 
-**[1]** B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling"  
-57th Annual Allerton Conference on Communication, Control, and Computing, 2019  
-[(Allerton)](https://proceedings.allerton.csl.illinois.edu/media/files/0073.pdf)
+**[1]** B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling"
+2019 57th Annual Allerton Conference on Communication, Control, and Computing, pp. 623-630.
+DOI: [10.1109/ALLERTON.2019.8919901](https://ieeexplore.ieee.org/document/8919901). Open preprint: [arXiv:1910.00536](https://arxiv.org/abs/1910.00536).
 
 **[2]** Y. Minsky, A. Trachtenberg, and R. Zippel,  
 "Set Reconciliation with Nearly Optimal Communication Complexity",  
