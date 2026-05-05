@@ -1,10 +1,12 @@
 package full_sync
 
 import (
+	"net"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
@@ -42,6 +44,8 @@ func TestNewFullSetSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Logf("New Pair test with %+v", tt)
+		port := availablePort(t)
+
 		server, err := NewFullSetSync()
 		assert.NoError(t, err)
 
@@ -71,11 +75,12 @@ func TestNewFullSetSync(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 8080)
+			defer wg.Done()
+
+			err := client.SyncServer("", port)
 			assert.NoError(t, err)
-			wg.Done()
 		}()
-		err = server.SyncClient("", 8080)
+		err = server.SyncClient("", port)
 		assert.NoError(t, err)
 		wg.Wait()
 
@@ -83,4 +88,14 @@ func TestNewFullSetSync(t *testing.T) {
 		assert.Len(t, *server.GetSetAdditions(), tt.clientSetSize-tt.intersectionSize)
 		assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
 	}
+}
+
+func availablePort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	return listener.Addr().(*net.TCPAddr).Port
 }
