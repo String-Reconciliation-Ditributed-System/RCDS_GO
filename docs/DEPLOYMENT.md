@@ -169,6 +169,7 @@ Then open `http://127.0.0.1:8000`.
 
 ## Production Notes
 
+- The repository is based on the RCDS research protocol, but the current `--algorithm rcds` CLI path is still research-grade. It builds content-dependent shingling metadata and uses the shared GenSync/full-sync wire exchange. Use `full` for deterministic correctness and `iblt` for bandwidth-sensitive set reconciliation today.
 - Run set sync behind a trusted network boundary unless you add TLS and authentication.
 - Use `--host 0.0.0.0` for container/server binds and a concrete host name for clients.
 - Tune `--expected-diff` for IBLT. A poor estimate can require retries or fail probabilistic decoding.

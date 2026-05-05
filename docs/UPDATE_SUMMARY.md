@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes repository modernization work. It now includes the original repository cleanup plus the newer CLI, file sync, documentation website, and test hardening pass.
+This document summarizes repository modernization work. It now includes the original repository cleanup plus the newer CLI, file sync, documentation website, paper background, and test hardening pass.
 
 ## Current Status
 
@@ -10,6 +10,7 @@ This document summarizes repository modernization work. It now includes the orig
 - `rcds server` and `rcds client` perform real set synchronization.
 - `--mode file` performs exact chunked file pull with SHA-256 verification.
 - GitHub Pages serves the static website from `docs/index.html`.
+- `docs/PAPER.md` documents how the Allerton 2019 RCDS paper maps to this Go implementation.
 - Unit, integration, e2e, coverage, and vet checks are runnable from the Makefile.
 
 ## Completed Tasks
@@ -65,7 +66,13 @@ This document summarizes repository modernization work. It now includes the orig
    - Design patterns
    - Performance considerations
 
-4. **Deployment Guide (docs/DEPLOYMENT.md)**
+4. **Paper Background (docs/PAPER.md)**
+   - IEEE and arXiv links for the RCDS paper
+   - Research-to-code mapping
+   - Current implementation boundaries
+   - Citation BibTeX
+
+5. **Deployment Guide (docs/DEPLOYMENT.md)**
    - Standalone deployment
    - Docker deployment
    - Kubernetes deployment

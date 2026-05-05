@@ -1,6 +1,6 @@
 # RCDS_GO Architecture
 
-RCDS_GO is organized as a small CLI plus reusable Go packages for set reconciliation, TCP transport, and file synchronization.
+RCDS_GO is organized as a small CLI plus reusable Go packages for set reconciliation, TCP transport, and file synchronization. The project is based on Bowen Song and Ari Trachtenberg's Allerton 2019 paper, ["Scalable String Reconciliation by Recursive Content-Dependent Shingling"](https://ieeexplore.ieee.org/document/8919901); see [PAPER.md](PAPER.md) for the research-to-code map.
 
 ## Layers
 
@@ -107,7 +107,19 @@ This transport is intentionally minimal. TLS, authentication, and multi-client c
 
 ### RCDS
 
-`pkg/lib/algorithm/rcds` builds content-dependent chunk metadata and uses a full-sync backend for the current wire exchange. This keeps the GenSync workflow compatible while preserving a path toward a pure RCDS reconciliation backend.
+`pkg/lib/algorithm/rcds` implements the paper-inspired metadata pipeline:
+
+```text
+input bytes
+  -> rolling content hashes
+  -> local-minimum content-dependent chunks
+  -> adjacent hash shingles
+  -> dictionary-backed reconstruction metadata
+```
+
+The current adapter then uses a full-sync backend for the wire exchange. That is an intentional implementation boundary: it keeps the GenSync workflow compatible and tested while preserving a path toward a pure RCDS exchange that reconciles shingle differences and transfers only missing terminal partitions.
+
+The paper's strongest fit is similar ordered data with small or clustered edits. It is less favorable when edits are numerous and sparsely distributed because many content-dependent partitions may be affected.
 
 ## File Protocol
 
@@ -130,6 +142,6 @@ The current file implementation is designed for correctness and CLI usability. V
 
 ## References
 
-- B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling", Allerton 2019.
+- B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling", 2019 57th Annual Allerton Conference on Communication, Control, and Computing, pp. 623-630. DOI: [10.1109/ALLERTON.2019.8919901](https://ieeexplore.ieee.org/document/8919901). Open preprint: [arXiv:1910.00536](https://arxiv.org/abs/1910.00536).
 - Y. Minsky, A. Trachtenberg, and R. Zippel, "Set Reconciliation with Nearly Optimal Communication Complexity", IEEE Transactions on Information Theory, 2003.
 - M. T. Goodrich and M. Mitzenmacher, "Invertible Bloom Lookup Tables", Allerton 2011.

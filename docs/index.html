@@ -29,6 +29,7 @@
       </a>
       <nav class="nav-links" aria-label="Documentation">
         <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/CLI.md">CLI</a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/PAPER.md">Paper</a>
         <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/ARCHITECTURE.md">Architecture</a>
         <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/DEPLOYMENT.md">Deploy</a>
         <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO">GitHub</a>
@@ -57,12 +58,12 @@
           <p class="eyebrow">Go toolkit and CLI for reconciliation</p>
           <h1 id="hero-title">RCDS</h1>
           <p class="hero-copy">
-            Recursive Content-Dependent Shingling helps distributed systems reconcile strings, sets,
-            and files by moving the differences instead of replaying the whole dataset.
+            Based on the Allerton 2019 RCDS paper, this Go project explores content-dependent
+            shingling, set reconciliation, and exact file sync workflows for distributed data.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button primary" href="#quickstart">Quick Start</a>
-            <a class="button secondary" href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO">View Source</a>
+            <a class="button secondary" href="https://ieeexplore.ieee.org/document/8919901">Read Paper</a>
           </div>
         </div>
       </section>
@@ -157,6 +158,10 @@
           <span>CLI Reference</span>
           <small>Commands, flags, set examples, and file examples.</small>
         </a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/PAPER.md">
+          <span>Paper Background</span>
+          <small>How the Allerton 2019 RCDS paper maps to this Go implementation.</small>
+        </a>
         <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/ARCHITECTURE.md">
           <span>Architecture</span>
           <small>Package layout, algorithm adapters, protocol flow, and design notes.</small>
@@ -169,11 +174,12 @@
 
       <section class="section research" aria-labelledby="research-title">
         <p class="eyebrow">Research lineage</p>
-        <h2 id="research-title">Based on scalable set and string reconciliation work.</h2>
+        <h2 id="research-title">Based on the RCDS paper from Allerton 2019.</h2>
         <p>
-          This implementation builds on the Allerton 2019 RCDS paper, earlier CPISync research,
-          and IBLT-based reconciliation. The goal of the Go project is to make those ideas easier to
-          test, ship, and compare in distributed systems.
+          Song and Trachtenberg's paper reduces string reconciliation to set reconciliation by
+          recursively partitioning strings into content-dependent shingles. This repository makes
+          that lineage explicit while separating research-grade RCDS metadata from the production
+          readiness of the current CLI and transport.
         </p>
       </section>
     </main>
