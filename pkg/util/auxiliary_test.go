@@ -11,6 +11,7 @@ func TestBytesAndIntConversion(t *testing.T) {
 	for _, i := range testInts {
 		assert.Equal(t, i, BytesToInt(IntToBytes(i)))
 	}
+	assert.Len(t, IntToBytes(1), 8)
 }
 
 func TestBytesAndInt64Conversion(t *testing.T) {
@@ -25,4 +26,9 @@ func TestBytesAndUint64Conversion(t *testing.T) {
 	for _, i := range testInts {
 		assert.Equal(t, i, BytesToUint64(Uint64ToBytes(i)))
 	}
+}
+
+func TestBytesToUint64PadsShortInputs(t *testing.T) {
+	assert.Equal(t, uint64(1), BytesToUint64([]byte{1}))
+	assert.Equal(t, int64(1), BytesToInt64([]byte{1}))
 }

@@ -57,8 +57,12 @@ func (i *ibltSync) SetFreezeLocal(freezeLocal bool) {
 }
 
 func (i *ibltSync) AddElement(elem interface{}) error {
+	elemBytes, ok := elem.([]byte)
+	if !ok {
+		return fmt.Errorf("iblt only accepts []byte elements")
+	}
 	if i.options.HashSync {
-		key, err := algorithm.HashBytesWithCryptoFunc(elem.([]byte), i.options.HashFunc).ToBytes()
+		key, err := algorithm.HashBytesWithCryptoFunc(elemBytes, i.options.HashFunc).ToBytes()
 		if err != nil {
 			return err
 		}
@@ -71,7 +75,7 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 	} else {
 		i.Set.InsertKey(elem)
 	}
-	key := elem.([]byte)
+	key := elemBytes
 	for j := range i.resyncIBLTs {
 		i.resyncIBLTs[j].Insert(key)
 	}
@@ -79,8 +83,12 @@ func (i *ibltSync) AddElement(elem interface{}) error {
 }
 
 func (i *ibltSync) DeleteElement(elem interface{}) error {
+	elemBytes, ok := elem.([]byte)
+	if !ok {
+		return fmt.Errorf("iblt only accepts []byte elements")
+	}
 	if i.options.HashSync {
-		key, err := algorithm.HashBytesWithCryptoFunc(elem.([]byte), i.options.HashFunc).ToBytes()
+		key, err := algorithm.HashBytesWithCryptoFunc(elemBytes, i.options.HashFunc).ToBytes()
 		if err != nil {
 			return err
 		}
@@ -91,7 +99,7 @@ func (i *ibltSync) DeleteElement(elem interface{}) error {
 		return i.Table.Delete(key)
 	}
 	i.Set.Remove(elem)
-	key := elem.([]byte)
+	key := elemBytes
 	for j := range i.resyncIBLTs {
 		i.resyncIBLTs[j].Delete(key)
 	}

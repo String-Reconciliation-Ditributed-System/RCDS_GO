@@ -20,18 +20,22 @@ func (e *ErrUnsupportedType) Error() string {
 
 func ToBigInt(input interface{}) (*bigint, error) {
 	zz := new(big.Int)
-	switch input.(type) {
+	switch v := input.(type) {
 	case string:
-		b := []byte(input.(string))
+		b := []byte(v)
 		zz.SetBytes(b)
 	case uint64:
-		zz.SetUint64(input.(uint64))
+		zz.SetUint64(v)
 	case []byte:
-		zz.SetBytes(input.([]byte))
+		zz.SetBytes(v)
 	default:
+		typeName := "<nil>"
+		if inputType := reflect.TypeOf(input); inputType != nil {
+			typeName = inputType.String()
+		}
 		return nil, &ErrUnsupportedType{
 			Value: input,
-			Type:  reflect.TypeOf(input).Name(),
+			Type:  typeName,
 		}
 	}
 	return (*bigint)(zz), nil

@@ -1,5 +1,25 @@
 # Release Notes
 
+## Current Unreleased
+
+### Major Changes
+
+- Real CLI server/client workflows for set reconciliation.
+- File sync mode with chunk reuse, SHA-256 verification, and atomic replacement.
+- Static project website under `docs/`, published by GitHub Pages.
+- CLI reference documentation in `docs/CLI.md`.
+- Expanded unit, integration, and e2e tests.
+- CI now uses Go 1.24 and fails build-tagged test workflows on failures.
+
+### Verification
+
+```bash
+make test
+make integration-test
+make e2e-test
+go vet ./...
+```
+
 ## Version 0.2.0
 
 ### Major Changes
@@ -44,7 +64,7 @@
 
 ### Breaking Changes
 
-- Go 1.14 is no longer supported; minimum version is now Go 1.21
+- Go 1.14 is no longer supported; minimum version is now Go 1.24
 - Vendor directory removed; use `go mod download` instead
 
 ### Security
@@ -61,8 +81,8 @@
 ### Known Limitations
 
 - Kubernetes operator/controller not yet implemented (planned for v0.3.0)
-- E2E tests are placeholder (full implementation planned)
-- Integration tests not yet added (planned for v0.3.0)
+- E2E tests are now implemented for CLI workflows in the unreleased branch
+- Integration tests are now implemented for reconciliation workflows in the unreleased branch
 
 ### Migration Guide
 
@@ -70,7 +90,7 @@
 
 1. Update Go version:
    ```bash
-   # Ensure you have Go 1.21 or later
+   # Ensure you have Go 1.24 or later
    go version
    ```
 

@@ -100,6 +100,14 @@ func TestWithDataLen(t *testing.T) {
 	}
 }
 
+func TestIBLTSyncRejectsNonByteElements(t *testing.T) {
+	syncer, err := NewIBLTSetSync(WithSymmetricSetDiff(1))
+	require.NoError(t, err)
+
+	assert.Error(t, syncer.AddElement("not bytes"))
+	assert.Error(t, syncer.DeleteElement("not bytes"))
+}
+
 func TestWithHashFunc(t *testing.T) {
 	rand.Seed(10)
 	tests := []struct {

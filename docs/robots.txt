@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://string-reconciliation-ditributed-system.github.io/RCDS_GO/sitemap.xml

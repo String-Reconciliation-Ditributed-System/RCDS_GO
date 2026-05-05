@@ -1,137 +1,135 @@
 # RCDS_GO Architecture
 
-## Overview
+RCDS_GO is organized as a small CLI plus reusable Go packages for set reconciliation, TCP transport, and file synchronization.
 
-RCDS (Recursive Content-Dependent Shingling) is a scalable string reconciliation protocol designed for distributed systems. This document describes the architecture of the RCDS_GO implementation.
+## Layers
 
-## System Architecture
+```text
+cmd/
+  main.go                 CLI entry point for set and file sync
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Application Layer                        │
-│                    (cmd/root.go)                             │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  Reconciliation Layer                        │
-│  ┌────────────┐  ┌──────────────┐  ┌─────────────────┐     │
-│  │  RCDS Sync │  │  Full Sync   │  │   IBLT Sync     │     │
-│  │ (pkg/lib/  │  │ (pkg/lib/    │  │  (pkg/lib/      │     │
-│  │ algorithm/ │  │ algorithm/   │  │  algorithm/     │     │
-│  │ rcds/)     │  │ full_sync/)  │  │  iblt/)         │     │
-│  └────────────┘  └──────────────┘  └─────────────────┘     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                    Core Libraries                            │
-│  ┌────────────┐  ┌──────────────┐  ┌─────────────────┐     │
-│  │  GenSync   │  │  Dictionary  │  │  Hash Functions │     │
-│  │ (pkg/lib/  │  │ (pkg/lib/    │  │  (pkg/lib/      │     │
-│  │ genSync/)  │  │ algorithm/)  │  │  algorithm/)    │     │
-│  └────────────┘  └──────────────┘  └─────────────────┘     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  Utilities Layer                             │
-│  ┌────────────┐  ┌──────────────┐  ┌─────────────────┐     │
-│  │   Set      │  │  File Utils  │  │  Conversion     │     │
-│  │ (pkg/set/) │  │ (pkg/file/)  │  │  (pkg/util/)    │     │
-│  └────────────┘  └──────────────┘  └─────────────────┘     │
-└─────────────────────────────────────────────────────────────┘
+pkg/file/
+  sync.go                 Chunked file pull protocol with SHA-256 verification
+
+pkg/lib/algorithm/
+  full_sync/              Deterministic full-set reconciliation baseline
+  iblt/                   Invertible Bloom Lookup Table reconciliation
+  rcds/                   Recursive Content-Dependent Shingling adapter
+
+pkg/lib/genSync/
+  interface.go            Shared GenSync contract
+  connection.go           Length-prefixed TCP connection implementation
+
+pkg/set/
+  set.go                  Hashable set abstraction used by algorithms
+
+pkg/util/
+  auxiliary.go            Stable integer and byte conversions
 ```
 
-## Key Components
+## CLI Flow
 
-### 1. RCDS Algorithm (`pkg/lib/algorithm/rcds/`)
+The CLI supports two modes:
 
-The core RCDS implementation that performs recursive content-dependent shingling:
+- `--mode set`: reconcile elements supplied with `--items` and/or `--input`.
+- `--mode file`: serve a source file and let a client pull an exact verified copy.
 
-- **Content-Dependent Partitioning**: Breaks data into chunks based on content
-- **Hash Shingling**: Creates fingerprints of data chunks
-- **Backtracking**: Reconstructs data from reconciled shingles
+Set mode creates a `genSync.GenSync` implementation from `--algorithm`:
 
-### 2. Set Reconciliation Primitives
+```text
+rcds server/client
+  -> parse flags
+  -> create full, iblt, or rcds syncer
+  -> add []byte elements
+  -> run SyncServer or SyncClient over TCP
+  -> optionally write sorted output
+```
 
-Multiple set reconciliation algorithms are supported:
+File mode uses `pkg/file` instead of the set algorithms:
 
-- **CPI (CPISync)**: Characteristic Polynomial Interpolation
-- **Interactive CPI**: Interactive version of CPI
-- **IBLT**: Invertible Bloom Lookup Tables
+```text
+server source file
+  -> fixed-size chunks
+  -> content hashes and full SHA-256
+  -> manifest plus missing chunk payloads
 
-### 3. GenSync Interface (`pkg/lib/genSync/`)
+client destination file
+  -> local chunk hashes, if the file exists
+  -> request missing chunks
+  -> reconstruct to temp file
+  -> verify checksum
+  -> atomically replace destination
+```
 
-Generic synchronization interface that abstracts:
+## GenSync Contract
 
-- Connection management (TCP)
-- Data type conversions
-- Common sync operations
-
-### 4. Network Layer
-
-- TCP-based communication
-- Server/Client model
-- Binary protocol for efficient data transfer
-
-## Data Flow
-
-### Synchronization Process
-
-1. **Client Initialization**
-   - Load local data
-   - Create shingles using content-dependent partitioning
-   - Build hash shingle set
-
-2. **Connection Establishment**
-   - Client connects to server
-   - Server starts listening
-
-3. **Set Reconciliation**
-   - Exchange set metadata
-   - Use IBLT/CPI to find differences
-   - Transfer only missing elements
-
-4. **Data Reconstruction**
-   - Backtrack from shingles to original data
-   - Verify integrity
-   - Update local copy
-
-## Design Patterns
-
-### Interface-Based Design
-
-The `GenSync` interface allows different reconciliation algorithms to be used interchangeably:
+All set algorithms implement the same interface:
 
 ```go
 type GenSync interface {
-    SyncClient(ip string, port int) error
-    SyncServer(ip string, port int) error
+    SetFreezeLocal(freezeLocal bool)
     AddElement(elem interface{}) error
     DeleteElement(elem interface{}) error
+    SyncClient(ip string, port int) error
+    SyncServer(ip string, port int) error
     GetLocalSet() *set.Set
+    GetSetAdditions() *set.Set
+    GetSentBytes() int
+    GetReceivedBytes() int
+    GetTotalBytes() int
 }
 ```
 
-### Content-Dependent Shingling
+The current implementations expect byte elements (`[]byte`) for CLI and algorithm interoperability. The set package normalizes byte keys to strings so map keys remain hashable.
 
-Uses rolling hash to create content-dependent boundaries:
+## Transport
 
-```
-Input: "The quick brown fox jumps over the lazy dog"
-       ↓
-Shingling: ["The quick", "brown fox", "jumps over", "the lazy dog"]
-       ↓
-Hashing: [hash1, hash2, hash3, hash4]
-```
+`pkg/lib/genSync/connection.go` provides the TCP framing used by the set algorithms:
 
-## Performance Considerations
+- `net.JoinHostPort` address construction
+- port validation
+- 8-byte length prefixes
+- full writes via `io.Copy`
+- bounded payload and slice sizes
+- safe close before and after connection establishment
 
-1. **Scalability**: RCDS scales logarithmically with file size
-2. **Network Efficiency**: Only sends differences, not entire files
-3. **Memory Usage**: Uses bloom filters and IBLT for space efficiency
-4. **Hash Functions**: Multiple hash functions supported for flexibility
+This transport is intentionally minimal. TLS, authentication, and multi-client concurrency are deployment concerns that should be added above or around this layer for production networks.
+
+## Algorithms
+
+### Full Sync
+
+`pkg/lib/algorithm/full_sync` exchanges complete sets when digests differ. It is deterministic and useful as a correctness baseline.
+
+### IBLT
+
+`pkg/lib/algorithm/iblt` uses Invertible Bloom Lookup Tables to exchange compact set summaries. It performs best when `--expected-diff` is close to the actual symmetric difference and can retry with larger tables.
+
+### RCDS
+
+`pkg/lib/algorithm/rcds` builds content-dependent chunk metadata and uses a full-sync backend for the current wire exchange. This keeps the GenSync workflow compatible while preserving a path toward a pure RCDS reconciliation backend.
+
+## File Protocol
+
+The file protocol is exact and conservative:
+
+1. The client sends hashes of chunks it already has.
+2. The server sends a full manifest plus data for missing unique chunks.
+3. The client reconstructs the file in manifest order.
+4. The client verifies the full SHA-256 checksum.
+5. The client renames the temporary file into place.
+
+The current file implementation is designed for correctness and CLI usability. Very large files still need streaming and bounded-memory payload exchange before this should be used for multi-gigabyte production transfers.
+
+## Testing Strategy
+
+- Unit tests cover CLI parsing, file reconstruction, integer encoding, set operations, logger configuration, and algorithm edge cases.
+- Package tests exercise local TCP sync for full sync, IBLT, and RCDS.
+- Integration tests run all algorithms through the same reconciliation scenario.
+- E2E tests build the binary and run real CLI server/client workflows for sets, files, large input files, startup, and connection failure.
 
 ## References
 
-- Song, B., & Trachtenberg, A. (2019). "Scalable String Reconciliation by Recursive Content-Dependent Shingling"
-- Minsky, Y., Trachtenberg, A., & Zippel, R. (2003). "Set Reconciliation with Nearly Optimal Communication Complexity"
-- Goodrich, M. T., & Mitzenmacher, M. (2011). "Invertible Bloom Lookup Tables"
+- B. Song and A. Trachtenberg, "Scalable String Reconciliation by Recursive Content-Dependent Shingling", Allerton 2019.
+- Y. Minsky, A. Trachtenberg, and R. Zippel, "Set Reconciliation with Nearly Optimal Communication Complexity", IEEE Transactions on Information Theory, 2003.
+- M. T. Goodrich and M. Mitzenmacher, "Invertible Bloom Lookup Tables", Allerton 2011.

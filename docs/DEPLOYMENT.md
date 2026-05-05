@@ -1,350 +1,190 @@
 # RCDS Deployment Guide
 
-This guide covers deploying RCDS in various environments.
+This guide covers the deployment paths currently supported by the repository: local binaries, containers, GitHub Pages documentation, and Kubernetes manifests.
 
-## Table of Contents
+## Local Binary
 
-- [Standalone Deployment](#standalone-deployment)
-- [Docker Deployment](#docker-deployment)
-- [Kubernetes Deployment](#kubernetes-deployment)
-- [Configuration](#configuration)
-
-## Standalone Deployment
-
-### Binary Installation
-
-1. Download the latest release from [GitHub Releases](https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/releases)
-2. Extract the binary:
-   ```bash
-   tar -xzf rcds-linux-amd64.tar.gz
-   ```
-3. Move to a directory in your PATH:
-   ```bash
-   sudo mv rcds /usr/local/bin/
-   ```
-
-### Build from Source
+Build from source:
 
 ```bash
 git clone https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO.git
 cd RCDS_GO
 make build
-sudo cp bin/rcds /usr/local/bin/
+./bin/rcds version
 ```
 
-## Docker Deployment
+Run a set sync server:
 
-### Building the Docker Image
+```bash
+./bin/rcds server \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --algorithm iblt \
+  --expected-diff 100 \
+  --input server-set.txt \
+  --output server-result.txt
+```
+
+Run a set sync client:
+
+```bash
+./bin/rcds client \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --algorithm iblt \
+  --expected-diff 100 \
+  --input client-set.txt \
+  --output client-result.txt
+```
+
+Run a file sync server:
+
+```bash
+./bin/rcds server --mode file --host 0.0.0.0 --port 8080 --file ./source.bin
+```
+
+Run a file sync client:
+
+```bash
+./bin/rcds client --mode file --host 127.0.0.1 --port 8080 --file ./copy.bin
+```
+
+## Container Image
+
+Build the image:
 
 ```bash
 docker build -t rcds:latest .
 ```
 
-### Running as Server
+Set sync server:
 
 ```bash
-docker run -d \
+docker run --rm \
   --name rcds-server \
   -p 8080:8080 \
-  rcds:latest server --port 8080
+  -v "$PWD/data:/data" \
+  rcds:latest server \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --algorithm full \
+  --input /data/server-set.txt \
+  --output /data/server-result.txt
 ```
 
-### Running as Client
+File sync server:
 
 ```bash
-docker run -d \
-  --name rcds-client \
-  rcds:latest client --server rcds-server:8080
+docker run --rm \
+  --name rcds-server \
+  -p 8080:8080 \
+  -v "$PWD/data:/data" \
+  rcds:latest server \
+  --mode file \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --file /data/source.bin
 ```
 
-### Docker Compose
+Client containers can use `--network host` on Linux, a shared Docker network, or a Compose service name depending on the environment.
 
-Create a `docker-compose.yml`:
+## Docker Compose Example
 
 ```yaml
-version: '3.8'
-
 services:
   rcds-server:
     image: rcds:latest
+    build: .
     ports:
       - "8080:8080"
-    command: server --port 8080
-    
+    volumes:
+      - ./data:/data
+    command:
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --algorithm
+      - full
+      - --input
+      - /data/server-set.txt
+      - --output
+      - /data/server-result.txt
+
   rcds-client:
     image: rcds:latest
     depends_on:
       - rcds-server
-    command: client --server rcds-server:8080
+    volumes:
+      - ./data:/data
+    command:
+      - client
+      - --host
+      - rcds-server
+      - --port
+      - "8080"
+      - --algorithm
+      - full
+      - --input
+      - /data/client-set.txt
+      - --output
+      - /data/client-result.txt
 ```
 
-Run with:
+## Kubernetes Manifests
 
-```bash
-docker-compose up -d
-```
+The repository currently ships:
 
-## Kubernetes Deployment
+- `deploy/crds/rcds_v1_rcds_crd.yaml`
+- `deploy/examples/rcds_sample.yaml`
+- RBAC manifests under `deploy/operator/`
 
-### Prerequisites
-
-- Kubernetes cluster (1.19+)
-- kubectl configured
-- Appropriate RBAC permissions
-
-### Install CRD
+Apply the CRD and RBAC:
 
 ```bash
 kubectl apply -f deploy/crds/rcds_v1_rcds_crd.yaml
+kubectl apply -f deploy/operator/
 ```
 
-### Install Operator
+Apply the sample custom resource:
 
 ```bash
-kubectl apply -f deploy/operator.yaml
-kubectl apply -f deploy/role.yaml
-kubectl apply -f deploy/role_binding.yaml
-kubectl apply -f deploy/service_account.yaml
+kubectl apply -f deploy/examples/rcds_sample.yaml
 ```
 
-### Deploy RCDS Instance
+Important: the repository does not yet include a full controller Deployment manifest. The CRD and RBAC are useful scaffolding, but a production Kubernetes deployment still needs a controller image, Deployment, Service, configuration, and observability wiring.
 
-Create a custom resource:
+## GitHub Pages Website
 
-```yaml
-apiVersion: rcds.distributed-system.io/v1
-kind: RCDS
-metadata:
-  name: rcds-sample
-  namespace: default
-spec:
-  replicas: 3
-  algorithm: "iblt"
-  port: 8080
-  resources:
-    limits:
-      cpu: "1"
-      memory: "512Mi"
-    requests:
-      cpu: "100m"
-      memory: "128Mi"
-```
+The project website lives in `docs/index.html` with styles in `docs/assets/site.css`. The Pages workflow publishes the `docs/` directory as a static artifact on pushes to `master` or `main`.
 
-Apply it:
+To preview locally:
 
 ```bash
-kubectl apply -f rcds-instance.yaml
+python3 -m http.server 8000 --directory docs
 ```
 
-### Verify Deployment
+Then open `http://127.0.0.1:8000`.
 
-```bash
-# Check pods
-kubectl get pods -l app=rcds
+## Production Notes
 
-# Check RCDS resources
-kubectl get rcds
+- Run set sync behind a trusted network boundary unless you add TLS and authentication.
+- Use `--host 0.0.0.0` for container/server binds and a concrete host name for clients.
+- Tune `--expected-diff` for IBLT. A poor estimate can require retries or fail probabilistic decoding.
+- File sync is exact and checksum-verified, but it is not yet a streaming multi-gigabyte transfer system.
+- Use `make test`, `make integration-test`, `make e2e-test`, and `go vet ./...` before release builds.
 
-# Check logs
-kubectl logs -l app=rcds -f
-```
+## Troubleshooting
 
-### Scaling
+### Client cannot connect
 
-Scale the RCDS deployment:
+Check that the server is still running, the port is exposed, and the server was started with a bind address reachable by the client.
 
-```bash
-kubectl scale rcds rcds-sample --replicas=5
-```
+### IBLT sync fails
 
-Or edit the resource:
+Increase `--expected-diff` and/or `--max-retries`, or use `--algorithm full` to verify the data path.
 
-```bash
-kubectl edit rcds rcds-sample
-```
+### File checksum mismatch
 
-### Monitoring
-
-RCDS exposes Prometheus metrics on `/metrics` endpoint.
-
-1. Deploy Prometheus:
-   ```bash
-   kubectl apply -f deploy/monitoring/prometheus.yaml
-   ```
-
-2. Deploy ServiceMonitor:
-   ```bash
-   kubectl apply -f deploy/monitoring/service-monitor.yaml
-   ```
-
-3. Access metrics:
-   ```bash
-   kubectl port-forward svc/prometheus 9090:9090
-   ```
-
-### Troubleshooting
-
-#### Pods not starting
-
-Check events:
-```bash
-kubectl describe pod <pod-name>
-kubectl get events --sort-by='.lastTimestamp'
-```
-
-#### CRD not found
-
-Reinstall CRD:
-```bash
-kubectl delete crd rcds.rcds.distributed-system.io
-kubectl apply -f deploy/crds/rcds_v1_rcds_crd.yaml
-```
-
-#### Connection issues
-
-Check service:
-```bash
-kubectl get svc -l app=rcds
-kubectl describe svc <service-name>
-```
-
-Check network policies:
-```bash
-kubectl get networkpolicy
-```
-
-## Configuration
-
-### Environment Variables
-
-- `RCDS_PORT`: Server listening port (default: 8080)
-- `RCDS_ALGORITHM`: Reconciliation algorithm (iblt, cpi, full)
-- `RCDS_LOG_LEVEL`: Log level (debug, info, warn, error)
-
-### Configuration File
-
-Create `rcds-config.yaml`:
-
-```yaml
-server:
-  port: 8080
-  host: "0.0.0.0"
-
-algorithm:
-  type: "iblt"
-  parameters:
-    tableSize: 1000
-    hashCount: 3
-
-logging:
-  level: "info"
-  format: "json"
-```
-
-Use with:
-
-```bash
-rcds --config rcds-config.yaml
-```
-
-## Security Considerations
-
-### Network Security
-
-1. Use TLS for production deployments
-2. Implement network policies in Kubernetes
-3. Restrict access using firewalls
-
-### RBAC
-
-In Kubernetes, ensure proper RBAC:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: rcds-operator
-rules:
-- apiGroups: ["rcds.distributed-system.io"]
-  resources: ["rcds"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-```
-
-## Performance Tuning
-
-### Memory
-
-Adjust based on dataset size:
-
-```yaml
-resources:
-  limits:
-    memory: "2Gi"
-  requests:
-    memory: "1Gi"
-```
-
-### CPU
-
-For high-throughput scenarios:
-
-```yaml
-resources:
-  limits:
-    cpu: "2"
-  requests:
-    cpu: "500m"
-```
-
-### Network
-
-Optimize for your environment:
-
-- Use persistent connections
-- Adjust buffer sizes
-- Enable compression if supported
-
-## Backup and Recovery
-
-### Backup
-
-```bash
-# Backup CRD definitions
-kubectl get rcds -o yaml > rcds-backup.yaml
-
-# Backup operator configuration
-kubectl get deployment rcds-operator -o yaml > operator-backup.yaml
-```
-
-### Recovery
-
-```bash
-# Restore CRD instances
-kubectl apply -f rcds-backup.yaml
-
-# Restore operator
-kubectl apply -f operator-backup.yaml
-```
-
-## Upgrading
-
-### Rolling Update
-
-```bash
-kubectl set image deployment/rcds-operator rcds=rcds:v0.2.0
-kubectl rollout status deployment/rcds-operator
-```
-
-### Rollback
-
-```bash
-kubectl rollout undo deployment/rcds-operator
-```
-
-## Support
-
-For issues or questions:
-
-- Open an issue on [GitHub](https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/issues)
-- Check the [documentation](https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/tree/master/docs)
-- Review [examples](https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/tree/master/examples)
+The client does not replace the destination if verification fails. Confirm both sides use the intended source/destination paths and the same `--chunk-size` if you are trying to maximize chunk reuse.

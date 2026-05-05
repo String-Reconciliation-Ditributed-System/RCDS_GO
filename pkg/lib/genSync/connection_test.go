@@ -82,3 +82,20 @@ func TestNewTcpConnection(t *testing.T) {
 	t.Log("Communicating for the Second time")
 	ClientServertest([]byte(rand.String(512)))
 }
+
+func TestNewTcpConnectionRejectsInvalidPorts(t *testing.T) {
+	_, err := NewTcpConnection("", 0)
+	assert.Error(t, err)
+
+	_, err = NewTcpConnection("", 65536)
+	assert.Error(t, err)
+}
+
+func TestSocketConnectionCloseBeforeUse(t *testing.T) {
+	conn, err := NewTcpConnection("", 9000+rand.IntnRange(1000, 9000))
+	require.NoError(t, err)
+
+	assert.NotPanics(t, func() {
+		assert.NoError(t, conn.Close())
+	})
+}
