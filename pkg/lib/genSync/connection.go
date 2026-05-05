@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
-	"github.com/sirupsen/logrus"
 	"io"
-	"k8s.io/client-go/util/retry"
 	"net"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/util/retry"
+
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
 )
 
 type Connection interface {

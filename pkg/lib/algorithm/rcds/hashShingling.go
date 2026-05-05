@@ -30,12 +30,7 @@ type shingleTailCount map[uint64]uint16
 // shingle sets are defined by hash shingles and their count within the set.
 type hashShingleSet map[uint64]*shingleTailCount
 
-var (
-	// localHashShingleSet stores all hash shingles of the partition tree.
-	localHashShingleSet = make(hashShingleSet)
-
-	ShingleNotFound = errors.New("shingle not found")
-)
+var ShingleNotFound = errors.New("shingle not found")
 
 // AddShingle adds a shingle to a shingle set and sets the shingle count.
 // Duplicated shingles should have the max count.
@@ -95,7 +90,9 @@ func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dic
 	if err != nil {
 		return nil, err
 	}
-	s.AddShingle(0, hash, 1)
+	if err := s.AddShingle(0, hash, 1); err != nil {
+		return nil, err
+	}
 
 	for i := 1; i < len(*chunks); i++ {
 		first, err := dict.AddToDict((*chunks)[i-1])
@@ -107,7 +104,9 @@ func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dic
 			return nil, err
 		}
 		if _, err = s.getShingleCount(first, second); err != nil {
-			s.AddShingle(first, second, 1)
+			if err = s.AddShingle(first, second, 1); err != nil {
+				return nil, err
+			}
 		} else {
 			if _, err = s.addShingleCount(first, second, 1); err != nil {
 				return nil, err
@@ -115,16 +114,6 @@ func (s *hashShingleSet) addChunksToShingleSet(chunks *[]string) (*algorithm.Dic
 		}
 	}
 	return &dict, nil
-}
-
-// addToHashShingleSet adds a hash shingle set to the local set of hash shingles.
-func (s *hashShingleSet) addToHashShingleSet(shingleSet *hashShingleSet) error {
-	for first, tailMap := range *shingleSet {
-		for second, count := range *tailMap {
-			return s.AddShingle(first, second, int(count))
-		}
-	}
-	return nil
 }
 
 // removeFromHashShingleSet removes shingles from the local shingle set. It returns error if the shingle does not exist
@@ -227,13 +216,4 @@ func (tc *shingleTailCount) getCount(tail uint64) int {
 		return 0
 	}
 	return int(count)
-}
-
-// tailExists checks if a tail exist. It returns false for both non-existing tail and tail with zero count.
-func (tc *shingleTailCount) tailExists(tail uint64) bool {
-	count, tailExists := (*tc)[tail]
-	if !tailExists || count == 0 {
-		return false
-	}
-	return true
 }

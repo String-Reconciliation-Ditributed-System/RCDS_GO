@@ -2,6 +2,7 @@ package iblt
 
 import (
 	"crypto"
+	"encoding/binary"
 	"sync"
 	"testing"
 
@@ -11,6 +12,22 @@ import (
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 )
+
+func TestIBLTUsesFullChecksumInSerializedTables(t *testing.T) {
+	syncer, err := NewIBLTSetSync(WithSymmetricSetDiff(1), WithDataLen(4))
+	require.NoError(t, err)
+
+	require.NoError(t, syncer.AddElement([]byte("abcd")))
+
+	ibltSyncer, ok := syncer.(*ibltSync)
+	require.True(t, ok)
+
+	serialized, err := ibltSyncer.Table.Serialize()
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(serialized), 8)
+
+	assert.Equal(t, uint16(ibltChecksumBytes), binary.BigEndian.Uint16(serialized[4:6]))
+}
 
 func TestWithDataLen(t *testing.T) {
 	rand.Seed(100)

@@ -1,14 +1,17 @@
 package set
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"testing"
 )
 
 func TestSet_Insert(t *testing.T) {
 	s := New()
 	s.InsertKey([]byte(rand.String(10)))
+
+	assert.Equal(t, 1, s.Len())
 }
 
 func TestSetByteKeysAreNormalized(t *testing.T) {
