@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Real `rcds server` and `rcds client` CLI workflows for set sync.
+- Chunked file pull mode with SHA-256 verification and atomic destination replacement.
+- GitHub Pages project website under `docs/`.
+- CLI reference documentation.
+- Unit, integration, and e2e coverage for CLI, file sync, algorithms, transport, set operations, and utility conversions.
+
+### Changed
+- `make test` now runs all packages.
+- CI uses Go 1.24 and runs the expanded package test suite.
+- E2E and integration workflows now fail when tests fail.
+- Deployment and architecture documentation now reflects the implemented CLI and file sync behavior.
+
+### Fixed
+- Removed unresolved RCDS merge-conflict markers.
+- Hardened TCP framing, payload bounds, close behavior, and byte counters.
+- Replaced unsafe integer conversion helpers with stable big-endian encoding.
+- Made set key normalization nil-safe.
+- Made IBLT reject non-byte elements instead of panicking.
+- Applied log level validation before logger construction.
+
 ## [0.2.0] - 2025-11-21
 
 ### Added

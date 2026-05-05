@@ -54,11 +54,11 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 		return &[]uint64{currentEdge}, nil
 	}
 
-	hashArr := make([]uint64, stepNum, stepNum)
+	hashArr := make([]uint64, stepNum)
 	hashArr[0] = currentEdge
 
 	// tailChangeHistory is an array shingleTailCounts copied at the time.
-	tailChangeHistory := make([]hashShingleSet, stepNum, stepNum)
+	tailChangeHistory := make([]hashShingleSet, stepNum)
 
 	if err := s.sort(); err != nil {
 		return nil, fmt.Errorf("error sorting shingle set, %v", err)
@@ -85,12 +85,7 @@ func (s *hashShingleSet) interactiveBacktracking(previousEdge, currentEdge uint6
 			i = i - 1
 		}
 		previousEdge = currentEdge
-<<<<<<< ours
 		for _, tail := range sortedTailKeys(tails) {
-=======
-		tailKeys := sortedTailKeys(tails)
-		for _, tail := range tailKeys {
->>>>>>> theirs
 			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
@@ -135,11 +130,11 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 
 	cycleNum := uint16(1)
 
-	tailChangeHistory := make([]hashShingleSet, len(hashArray), len(hashArray))
+	tailChangeHistory := make([]hashShingleSet, len(hashArray))
 	previousEdge := uint64(0)
 	currentEdge := hashArray[0]
 
-	hashArr := make([]uint64, len(hashArray), len(hashArray))
+	hashArr := make([]uint64, len(hashArray))
 	hashArr[0] = currentEdge
 
 	if err := s.sort(); err != nil {
@@ -167,12 +162,7 @@ func (s *hashShingleSet) reverseInteractiveBacktracking(hashArray []uint64) (*Cy
 			i = i - 1
 		}
 		previousEdge = currentEdge
-<<<<<<< ours
 		for _, tail := range sortedTailKeys(tails) {
-=======
-		tailKeys := sortedTailKeys(tails)
-		for _, tail := range tailKeys {
->>>>>>> theirs
 			count := tails[tail]
 			currentEdge = tail
 			// get the changed shingles from last layer.
@@ -217,7 +207,7 @@ func (s *hashShingleSet) getTailEdges(firstEdge uint64) shingleTailCount {
 func (s *hashShingleSet) sort() error {
 	size := s.Size()
 	i := 0
-	arry := make([]shingle, size, size)
+	arry := make([]shingle, size)
 	for f, s := range *s {
 		ta := s.toShingleArray(f)
 		copy(arry[i:i+len(ta)], ta)
@@ -234,7 +224,7 @@ func (s *hashShingleSet) sort() error {
 }
 
 func (tc *shingleTailCount) toShingleArray(first uint64) []shingle {
-	arry := make([]shingle, len(*tc), len(*tc))
+	arry := make([]shingle, len(*tc))
 	i := 0
 	for s, c := range *tc {
 		arry[i] = shingle{
@@ -245,15 +235,4 @@ func (tc *shingleTailCount) toShingleArray(first uint64) []shingle {
 		i = i + 1
 	}
 	return arry
-}
-
-func sortedTailKeys(tails shingleTailCount) []uint64 {
-	keys := make([]uint64, 0, len(tails))
-	for tail := range tails {
-		keys = append(keys, tail)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
-	return keys
 }

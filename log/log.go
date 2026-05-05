@@ -10,11 +10,14 @@ import (
 // "error", "dpanic", "panic", and "fatal") returns an error if input log level is not understandable.
 func SetLogLevel(logLevel []byte) error {
 	cfg := zap.NewDevelopmentConfig()
+	if err := cfg.Level.UnmarshalText(logLevel); err != nil {
+		return err
+	}
 	// Building a logger wrapper.
 	zapLog, err := cfg.Build()
 	if err != nil {
 		return err
 	}
 	logger.SetLogger(zapr.NewLogger(zapLog))
-	return cfg.Level.UnmarshalText(logLevel)
+	return nil
 }

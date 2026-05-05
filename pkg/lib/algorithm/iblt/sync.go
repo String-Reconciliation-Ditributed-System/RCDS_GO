@@ -25,6 +25,8 @@ type ibltSync struct {
 	options       ibltOptions
 }
 
+const ibltChecksumBytes = 8
+
 func NewIBLTSetSync(option ...IBLTOption) (genSync.GenSync, error) {
 	opt := ibltOptions{}
 	opt.apply(option)
@@ -32,16 +34,16 @@ func NewIBLTSetSync(option ...IBLTOption) (genSync.GenSync, error) {
 		return nil, err
 	}
 
-	tableSize, numFxn := calculateTableDimentions(opt.SymmetricDiff, opt.TableSizeConstant)
+	tableSize, numFxn := calculateTableDimensions(opt.SymmetricDiff, opt.TableSizeConstant)
 
 	IBLTs := make([]*iblt.Table, opt.MaxSyncRetry)
 	for i := range IBLTs {
-		tableSize, numFxn := calculateTableDimentions(opt.SymmetricDiff, opt.TableSizeConstant+float64(i+1))
-		IBLTs[i] = iblt.NewTable(uint(tableSize), opt.DataLen, 1, numFxn)
+		tableSize, numFxn := calculateTableDimensions(opt.SymmetricDiff, opt.TableSizeConstant+float64(i+1))
+		IBLTs[i] = iblt.NewTable(uint(tableSize), opt.DataLen, ibltChecksumBytes, numFxn)
 	}
 
 	return &ibltSync{
-		Table:         iblt.NewTable(uint(tableSize), opt.DataLen, 1, numFxn),
+		Table:         iblt.NewTable(uint(tableSize), opt.DataLen, ibltChecksumBytes, numFxn),
 		resyncIBLTs:   IBLTs,
 		Set:           set.New(),
 		additionals:   set.New(),
@@ -57,45 +59,71 @@ func (i *ibltSync) SetFreezeLocal(freezeLocal bool) {
 }
 
 func (i *ibltSync) AddElement(elem interface{}) error {
+	elemBytes, ok := elem.([]byte)
+	if !ok {
+		return fmt.Errorf("iblt only accepts []byte elements")
+	}
 	if i.options.HashSync {
-		key, err := algorithm.HashBytesWithCryptoFunc(elem.([]byte), i.options.HashFunc).ToBytes()
+		key, err := algorithm.HashBytesWithCryptoFunc(elemBytes, i.options.HashFunc).ToBytes()
 		if err != nil {
+			return err
+		}
+		for j := range i.resyncIBLTs {
+			if err := i.resyncIBLTs[j].Insert(key); err != nil {
+				return err
+			}
+		}
+		if err := i.Table.Insert(key); err != nil {
 			return err
 		}
 		i.Set.Insert(key, elem)
-
-		for j := range i.resyncIBLTs {
-			i.resyncIBLTs[j].Insert(key)
-		}
-		return i.Table.Insert(key)
-	} else {
-		i.Set.InsertKey(elem)
+		return nil
 	}
-	key := elem.([]byte)
+	key := elemBytes
 	for j := range i.resyncIBLTs {
-		i.resyncIBLTs[j].Insert(key)
+		if err := i.resyncIBLTs[j].Insert(key); err != nil {
+			return err
+		}
 	}
-	return i.Table.Insert(key)
+	if err := i.Table.Insert(key); err != nil {
+		return err
+	}
+	i.Set.InsertKey(elem)
+	return nil
 }
 
 func (i *ibltSync) DeleteElement(elem interface{}) error {
+	elemBytes, ok := elem.([]byte)
+	if !ok {
+		return fmt.Errorf("iblt only accepts []byte elements")
+	}
 	if i.options.HashSync {
-		key, err := algorithm.HashBytesWithCryptoFunc(elem.([]byte), i.options.HashFunc).ToBytes()
+		key, err := algorithm.HashBytesWithCryptoFunc(elemBytes, i.options.HashFunc).ToBytes()
 		if err != nil {
 			return err
 		}
-		i.Set.Remove(key)
 		for j := range i.resyncIBLTs {
-			i.resyncIBLTs[j].Delete(key)
+			if err := i.resyncIBLTs[j].Delete(key); err != nil {
+				return err
+			}
 		}
-		return i.Table.Delete(key)
+		if err := i.Table.Delete(key); err != nil {
+			return err
+		}
+		i.Set.Remove(key)
+		return nil
+	}
+	key := elemBytes
+	for j := range i.resyncIBLTs {
+		if err := i.resyncIBLTs[j].Delete(key); err != nil {
+			return err
+		}
+	}
+	if err := i.Table.Delete(key); err != nil {
+		return err
 	}
 	i.Set.Remove(elem)
-	key := elem.([]byte)
-	for j := range i.resyncIBLTs {
-		i.resyncIBLTs[j].Delete(key)
-	}
-	return i.Table.Delete(key)
+	return nil
 }
 
 func (i *ibltSync) SyncClient(ip string, port int) error {
@@ -414,17 +442,16 @@ func (i *ibltSync) resyncClient(connection genSync.Connection) (syncErr error) {
 		retrySuccess, err := connection.ReceiveSkipSyncBoolWithInfo("resync success after %d additional tries, skipping the rest of retires", j+1)
 		if retrySuccess {
 			return nil
-		} else {
-			syncErr = err
-			continue
 		}
+		syncErr = err
+		continue
 	}
 	return syncErr
 }
 
-// calculateTableDimentions calculates the IBLT dimentions include tablesize and number of hash functions used.
-func calculateTableDimentions(symmetricDifferences int, tableSizeContant float64) (int, int) {
-	tableSize := math.Ceil(float64(symmetricDifferences) * tableSizeContant)
+// calculateTableDimensions calculates the IBLT dimensions including table size and number of hash functions used.
+func calculateTableDimensions(symmetricDifferences int, tableSizeConstant float64) (int, int) {
+	tableSize := math.Ceil(float64(symmetricDifferences) * tableSizeConstant)
 	if tableSize < 4 {
 		tableSize = 4
 	}

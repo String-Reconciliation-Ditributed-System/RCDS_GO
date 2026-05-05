@@ -2,8 +2,8 @@ package set
 
 import (
 	"fmt"
+
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
-	"reflect"
 )
 
 type Set map[interface{}]interface{}
@@ -131,8 +131,10 @@ func (s *Set) GetDigest() (uint64, error) {
 // convertToHashableElement includes all methods converting element into a hashable type:
 // 1. convert []byte to string.
 func convertToHashableElement(element interface{}) interface{} {
-	if reflect.TypeOf(element).String() == reflect.TypeOf([]byte{}).String() {
-		element = string(element.([]byte))
+	switch v := element.(type) {
+	case []byte:
+		return string(v)
+	default:
+		return element
 	}
-	return element
 }

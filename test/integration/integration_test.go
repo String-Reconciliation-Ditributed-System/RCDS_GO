@@ -5,9 +5,17 @@ package integration
 
 import (
 	"crypto"
+	"fmt"
+	"net"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm/full_sync"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm/iblt"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm/rcds"
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,24 +98,63 @@ func TestHashStringConversion(t *testing.T) {
 
 // TestEndToEndReconciliation tests complete reconciliation workflow
 func TestEndToEndReconciliation(t *testing.T) {
-	t.Skip("Skipping - requires full sync implementation")
+	server, err := full_sync.NewFullSetSync()
+	require.NoError(t, err)
+	client, err := full_sync.NewFullSetSync()
+	require.NoError(t, err)
 
-	// This test would:
-	// 1. Create two datasets with known differences
-	// 2. Run RCDS reconciliation
-	// 3. Verify both datasets are synchronized
-	// 4. Check communication overhead
+	require.NoError(t, server.AddElement([]byte("server-only")))
+	require.NoError(t, server.AddElement([]byte("shared")))
+	require.NoError(t, client.AddElement([]byte("client-only")))
+	require.NoError(t, client.AddElement([]byte("shared")))
+
+	syncPair(t, server, client)
+
+	assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
+	assert.True(t, server.GetLocalSet().Has([]byte("server-only")))
+	assert.True(t, server.GetLocalSet().Has([]byte("client-only")))
+	assert.True(t, server.GetLocalSet().Has([]byte("shared")))
 }
 
 // TestRCDSWithDifferentAlgorithms tests RCDS with different underlying algorithms
 func TestRCDSWithDifferentAlgorithms(t *testing.T) {
-	t.Skip("Skipping - requires algorithm selection implementation")
-
-	algorithms := []string{"IBLT", "CPI", "FullSync"}
+	algorithms := []struct {
+		name    string
+		factory func() (genSync.GenSync, error)
+	}{
+		{
+			name: "IBLT",
+			factory: func() (genSync.GenSync, error) {
+				return iblt.NewIBLTSetSync(iblt.WithSymmetricSetDiff(4), iblt.WithMaxSyncRetries(2))
+			},
+		},
+		{
+			name: "RCDS",
+			factory: func() (genSync.GenSync, error) {
+				return rcds.NewRCDSSetSync()
+			},
+		},
+		{
+			name:    "FullSync",
+			factory: full_sync.NewFullSetSync,
+		},
+	}
 
 	for _, algo := range algorithms {
-		t.Run(algo, func(t *testing.T) {
-			// Test RCDS with each algorithm
+		t.Run(algo.name, func(t *testing.T) {
+			server, err := algo.factory()
+			require.NoError(t, err)
+			client, err := algo.factory()
+			require.NoError(t, err)
+
+			require.NoError(t, server.AddElement([]byte("server-only")))
+			require.NoError(t, server.AddElement([]byte("shared")))
+			require.NoError(t, client.AddElement([]byte("client-only")))
+			require.NoError(t, client.AddElement([]byte("shared")))
+
+			syncPair(t, server, client)
+
+			assert.EqualValues(t, *server.GetLocalSet(), *client.GetLocalSet())
 		})
 	}
 }
@@ -150,4 +197,37 @@ func TestDataPersistence(t *testing.T) {
 	// 1. Save state to disk
 	// 2. Restart service
 	// 3. Verify state is restored
+}
+
+func syncPair(t *testing.T, server genSync.GenSync, client genSync.GenSync) {
+	t.Helper()
+
+	port := freePort(t)
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errs <- server.SyncServer("127.0.0.1", port)
+	}()
+	time.Sleep(100 * time.Millisecond)
+	errs <- client.SyncClient("127.0.0.1", port)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+}
+
+func freePort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	require.True(t, ok, fmt.Sprintf("expected TCP address, got %T", listener.Addr()))
+	return addr.Port
 }

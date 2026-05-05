@@ -7,9 +7,6 @@ import (
 // Dictionary records the mapping between hash value and string.
 type Dictionary map[uint64]string
 
-// This is a local Dictionary to store string and hash transition.
-var localDictionary = make(Dictionary)
-
 // AddToDict converts a string in a hash value and add this pair of string and hash to the local Dictionary.
 // It returns the hash value of the string and errors out if there exist hash collision or hash convection error.
 func (d *Dictionary) AddToDict(entry string) (uint64, error) {

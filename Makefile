@@ -12,14 +12,22 @@ build:
 
 .PHONY: test
 test:
-	$(GO_BUILD_ARGS) go test ./pkg/... -v
+	$(GO_BUILD_ARGS) go test ./... -v
 
 .PHONY: unit-test
 unit-test: test
 
+.PHONY: integration-test
+integration-test:
+	$(GO_BUILD_ARGS) go test -tags integration ./test/integration -v
+
+.PHONY: e2e-test
+e2e-test:
+	$(GO_BUILD_ARGS) go test -tags e2e ./test/e2e -v
+
 .PHONY: test-coverage
 test-coverage:
-	$(GO_BUILD_ARGS) go test ./pkg/... -coverprofile=coverage.out -covermode=atomic
+	$(GO_BUILD_ARGS) go test ./... -coverprofile=coverage.out -covermode=atomic
 	go tool cover -html=coverage.out -o coverage.html
 
 .PHONY: fmt
@@ -53,6 +61,8 @@ help:
 	@echo "  all           - Run fmt, vet, lint, test, and build"
 	@echo "  build         - Build the binary"
 	@echo "  test          - Run all tests"
+	@echo "  integration-test - Run integration tests"
+	@echo "  e2e-test      - Run end-to-end CLI tests"
 	@echo "  test-coverage - Run tests with coverage report"
 	@echo "  fmt           - Format code"
 	@echo "  vet           - Run go vet"

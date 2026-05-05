@@ -1,14 +1,17 @@
 package genSync
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
-	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
-	"github.com/sirupsen/logrus"
 	"io"
-	"k8s.io/client-go/util/retry"
 	"net"
 	"strconv"
-	"strings"
+
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/util/retry"
+
+	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
 )
 
 type Connection interface {
@@ -40,12 +43,17 @@ type socketConnection struct {
 
 // Original TCP buffer size for slower networks.
 const bufferSize int = 65535
+const maxPayloadSize int = 1 << 30
+const maxSliceItems int = 10_000_000
 
 func NewTcpConnection(ipAddr string, port int) (Connection, error) {
 	if ipAddr == "" {
 		ipAddr = "localhost"
 	}
-	addr, err := net.ResolveTCPAddr("tcp", strings.Join([]string{ipAddr, strconv.Itoa(port)}, ":"))
+	if port < 1 || port > 65535 {
+		return nil, fmt.Errorf("port number must be between 1 and 65535, got %d", port)
+	}
+	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ipAddr, strconv.Itoa(port)))
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +62,7 @@ func NewTcpConnection(ipAddr string, port int) (Connection, error) {
 	}, nil
 }
 
-// Connect tires to connect with server and fails upon several retries.
+// Connect tries to connect with server and fails upon several retries.
 func (s *socketConnection) Connect() error {
 	var err error
 	logrus.Infof("connecting to: %v", s.tcpAddress)
@@ -71,12 +79,13 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 		return 0, err
 	}
 	dataSize := util.Int64ToBytes(int64(len(data)))
-	_, err := s.connection.Write(dataSize)
-	if err != nil {
+	if _, err := writeFull(s.connection, dataSize); err != nil {
 		return 0, err
 	}
-	s.sentBytes += len(data) + 8
-	return s.connection.Write(data)
+	s.sentBytes += 8
+	n, err := writeFull(s.connection, data)
+	s.sentBytes += n
+	return n, err
 }
 
 func (s *socketConnection) Listen() error {
@@ -105,6 +114,9 @@ func (s *socketConnection) Receive() ([]byte, error) {
 	sizeInt := int(util.BytesToInt64(size))
 	if sizeInt < 0 {
 		return nil, fmt.Errorf("received invalid negative payload size: %d", sizeInt)
+	}
+	if sizeInt > maxPayloadSize {
+		return nil, fmt.Errorf("received payload size %d exceeds maximum %d", sizeInt, maxPayloadSize)
 	}
 	res := make([]byte, sizeInt)
 
@@ -136,6 +148,12 @@ func (s *socketConnection) ReceiveBytesSlice() ([][]byte, error) {
 		return nil, err
 	}
 	ss := util.BytesToInt(setSize)
+	if ss < 0 {
+		return nil, fmt.Errorf("received invalid negative slice size: %d", ss)
+	}
+	if ss > maxSliceItems {
+		return nil, fmt.Errorf("received slice size %d exceeds maximum %d", ss, maxSliceItems)
+	}
 	res := make([][]byte, ss)
 
 	for j := 0; j < ss; j++ {
@@ -197,10 +215,19 @@ func (s *socketConnection) ReceiveSyncStatus() (uint8, error) {
 }
 
 func (s *socketConnection) Close() error {
-	if err := s.listener.Close(); err != nil {
-		logrus.Debugf("failed to close listener, %v", err)
+	var errs []error
+	if s.listener != nil {
+		if err := s.listener.Close(); err != nil {
+			logrus.Debugf("failed to close listener, %v", err)
+			errs = append(errs, err)
+		}
 	}
-	return s.connection.Close()
+	if s.connection != nil {
+		if err := s.connection.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (s *socketConnection) GetIp() string {
@@ -221,4 +248,13 @@ func (s *socketConnection) GetReceivedBytes() int {
 
 func (s *socketConnection) GetTotalBytes() int {
 	return s.receivedBytes + s.sentBytes
+}
+
+func writeFull(w io.Writer, data []byte) (int, error) {
+	n64, err := io.Copy(w, bytes.NewReader(data))
+	n := int(n64)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }

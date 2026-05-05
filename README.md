@@ -7,23 +7,26 @@
 
 RCDS is a scalable string reconciliation protocol designed for distributed systems. This Go implementation provides efficient file synchronization using set reconciliation primitives.
 
+Project website: [GitHub Pages](https://string-reconciliation-ditributed-system.github.io/RCDS_GO/)
+
 ## Overview
 
-The RCDS algorithm breaks files into content-dependent chunks (shingles) and uses set reconciliation to synchronize data between distributed nodes. This approach is significantly more efficient than traditional file synchronization methods, especially for large files with small differences.
+The RCDS algorithm breaks data into content-dependent chunks (shingles) and uses set reconciliation to synchronize distributed nodes. This repository includes reusable Go packages plus a production-oriented CLI for set reconciliation and exact chunked file pulls.
 
 ### Key Features
 
-- 🚀 **Scalable**: Logarithmic complexity with respect to file size
-- 🔒 **Efficient**: Only transfers differences, not entire files
-- 🔄 **Multiple Algorithms**: Supports CPI, Interactive CPI, and IBLT set reconciliation
-- 🌐 **Distributed**: Designed for distributed systems
-- 📦 **Go Modules**: Native Go module support
-- ☸️ **Kubernetes Ready**: CRD support for Kubernetes deployments
+- **CLI server/client**: Real `rcds server` and `rcds client` commands for local and containerized workflows.
+- **Multiple algorithms**: `rcds`, `iblt`, and `full` set reconciliation behind one GenSync-compatible interface.
+- **Chunked file pull**: Transfers missing chunks and verifies the final SHA-256 checksum before replacing the destination.
+- **TCP transport**: Length-prefixed payloads with bounded reads, full writes, and byte counters.
+- **Tested workflows**: Unit, integration, e2e, coverage, and vet checks cover the critical paths.
+- **Deployment scaffolding**: Dockerfile, Kubernetes CRD/RBAC manifests, and a GitHub Pages project website.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [CLI Reference](docs/CLI.md)
 - [Usage](#usage)
 - [Architecture](#architecture)
 - [Algorithms](#algorithms)
@@ -37,7 +40,7 @@ The RCDS algorithm breaks files into content-dependent chunks (shingles) and use
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.24 or later
 - Make (optional, for using Makefile commands)
 
 ### Install from Source
@@ -58,29 +61,87 @@ go get github.com/String-Reconciliation-Ditributed-System/RCDS_GO
 
 ## Quick Start
 
-### Basic Usage
+### CLI Set Sync
+
+Start a one-shot server with a line-delimited or comma-delimited set:
+
+```bash
+./bin/rcds server --algorithm full --items server-only,shared --output server.out
+```
+
+Then connect a client:
+
+```bash
+./bin/rcds client --algorithm full --items client-only,shared --output client.out
+```
+
+Both output files will contain the reconciled set:
+
+```text
+client-only
+server-only
+shared
+```
+
+### CLI File Sync
+
+Serve an exact source file:
+
+```bash
+./bin/rcds server --mode file --file ./source.bin
+```
+
+Pull it from a client:
+
+```bash
+./bin/rcds client --mode file --file ./copy.bin
+```
+
+The file protocol transfers only chunks the client does not already have and verifies the final SHA-256 checksum before replacing the destination file.
+
+### Library Usage
 
 ```go
 package main
 
 import (
+    "log"
+    "sync"
+
+    "github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm/full_sync"
     "github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
-    "github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 )
 
 func main() {
-    // Create a new sync instance
-    sync := // ... initialize your sync algorithm
+    server, err := full_sync.NewFullSetSync()
+    if err != nil {
+        log.Fatal(err)
+    }
+    client, err := full_sync.NewFullSetSync()
+    if err != nil {
+        log.Fatal(err)
+    }
     
-    // Add elements to sync
-    sync.AddElement("data1")
-    sync.AddElement("data2")
+    server.AddElement([]byte("server-only"))
+    server.AddElement([]byte("shared"))
+    client.AddElement([]byte("client-only"))
+    client.AddElement([]byte("shared"))
     
-    // Start server
-    go sync.SyncServer("127.0.0.1", 8080)
+    var wg sync.WaitGroup
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        if err := server.SyncServer("127.0.0.1", 8080); err != nil {
+            log.Fatal(err)
+        }
+    }()
     
-    // Connect as client
-    sync.SyncClient("127.0.0.1", 8080)
+    if err := client.SyncClient("127.0.0.1", 8080); err != nil {
+        log.Fatal(err)
+    }
+    wg.Wait()
+
+    var _ genSync.GenSync = client
 }
 ```
 
@@ -106,20 +167,30 @@ make lint
 
 # Run all checks
 make all
+
+# Run integration and e2e tests
+make integration-test
+make e2e-test
 ```
 
 ### Running Tests
 
 ```bash
 # Run all tests
-go test ./pkg/...
+go test ./...
 
 # Run with verbose output
-go test -v ./pkg/...
+go test -v ./...
 
 # Run with coverage
-go test -coverprofile=coverage.out ./pkg/...
+go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
+
+# Run CLI e2e tests
+go test -tags e2e ./test/e2e
+
+# Run integration tests
+go test -tags integration ./test/integration
 ```
 
 ## Architecture
@@ -133,17 +204,19 @@ RCDS uses a layered architecture:
 
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+For command-line details, see [docs/CLI.md](docs/CLI.md).
+
 ## Algorithms
 
 RCDS supports multiple set reconciliation algorithms:
 
 ### RCDS (Recursive Content-Dependent Shingling)
 
-The main algorithm that uses content-dependent chunking and hash shingling.
+The RCDS adapter builds content-dependent chunk metadata and currently uses the shared GenSync transport workflow.
 
 - **Complexity**: O(log n) with respect to file size
 - **Best for**: Large files with small differences
-- **Use case**: File synchronization in distributed systems
+- **Use case**: Research and comparison of content-dependent shingling workflows
 
 ### IBLT (Invertible Bloom Lookup Tables)
 
@@ -190,9 +263,21 @@ godoc -http=:6060
 
 Then visit http://localhost:6060/pkg/github.com/String-Reconciliation-Ditributed-System/RCDS_GO/
 
+## Project Website
+
+The website source lives in [docs/index.html](docs/index.html) and [docs/assets/site.css](docs/assets/site.css). GitHub Pages publishes the `docs/` directory on pushes to `master` or `main`.
+
+Preview locally:
+
+```bash
+python3 -m http.server 8000 --directory docs
+```
+
+Then open http://127.0.0.1:8000.
+
 ## Kubernetes Deployment
 
-RCDS can be deployed on Kubernetes using Custom Resource Definitions (CRDs).
+The repository includes Kubernetes CRD/RBAC scaffolding.
 
 ### Installing the CRD
 
@@ -200,13 +285,15 @@ RCDS can be deployed on Kubernetes using Custom Resource Definitions (CRDs).
 kubectl apply -f deploy/crds/
 ```
 
-### Deploying RCDS
+### Installing RBAC Scaffolding
 
 ```bash
-kubectl apply -f deploy/operator.yaml
+kubectl apply -f deploy/operator/
 ```
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+
+Note: a complete production controller Deployment is not included yet.
 
 ## Contributing
 

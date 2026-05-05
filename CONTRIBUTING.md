@@ -10,7 +10,7 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.24 or later
 - Git
 - Make
 
@@ -41,6 +41,8 @@ This project adheres to a code of conduct. By participating, you are expected to
 6. Run tests:
    ```bash
    make test
+   make integration-test
+   make e2e-test
    ```
 
 ## Development Workflow
@@ -90,6 +92,7 @@ critical.
 - Ensure all tests pass before submitting
 - Aim for high test coverage
 - Run tests with: `make test`
+- Run build-tagged integration and e2e tests when changing CLI, TCP, or file sync behavior
 - Check coverage with: `make test-coverage`
 
 ### Code Style
@@ -134,6 +137,7 @@ RCDS_GO/
 │   ├── set/          # Set data structure
 │   └── util/         # Utility functions
 ├── docs/             # Documentation
+│   └── index.html    # GitHub Pages website
 └── .github/          # GitHub workflows
 ```
 
@@ -143,6 +147,8 @@ RCDS_GO/
 
 ```bash
 make test
+make integration-test
+make e2e-test
 ```
 
 ### Test Coverage
@@ -162,6 +168,8 @@ make lint
 ## Documentation
 
 - Update documentation for any user-facing changes
+- Update `docs/index.html` and `docs/assets/site.css` for website changes
+- Update `docs/CLI.md` when flags, commands, or examples change
 - Add godoc comments for exported functions
 - Update README.md for major changes
 - Add examples for new features

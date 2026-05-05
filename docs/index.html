@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RCDS - Recursive Content-Dependent Shingling</title>
+    <meta
+      name="description"
+      content="RCDS_GO is a Go implementation of Recursive Content-Dependent Shingling for efficient set and file reconciliation across distributed systems."
+    >
+    <meta property="og:title" content="RCDS - Recursive Content-Dependent Shingling">
+    <meta
+      property="og:description"
+      content="A Go toolkit and CLI for difference-aware set and file reconciliation."
+    >
+    <meta property="og:url" content="https://string-reconciliation-ditributed-system.github.io/RCDS_GO/">
+    <meta property="og:type" content="website">
+    <link rel="canonical" href="https://string-reconciliation-ditributed-system.github.io/RCDS_GO/">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./assets/site.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="./index.html" aria-label="RCDS home">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span>RCDS</span>
+      </a>
+      <nav class="nav-links" aria-label="Documentation">
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/CLI.md">CLI</a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/ARCHITECTURE.md">Architecture</a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/DEPLOYMENT.md">Deploy</a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="content">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="sync-scene" aria-hidden="true">
+          <div class="node node-a">
+            <span>node A</span>
+            <i></i><i></i><i></i><i></i>
+          </div>
+          <div class="node node-b">
+            <span>node B</span>
+            <i></i><i></i><i></i><i></i>
+          </div>
+          <div class="packet packet-one"></div>
+          <div class="packet packet-two"></div>
+          <div class="packet packet-three"></div>
+          <div class="shingle-track">
+            <b></b><b></b><b></b><b></b><b></b><b></b>
+          </div>
+        </div>
+        <div class="hero-content">
+          <p class="eyebrow">Go toolkit and CLI for reconciliation</p>
+          <h1 id="hero-title">RCDS</h1>
+          <p class="hero-copy">
+            Recursive Content-Dependent Shingling helps distributed systems reconcile strings, sets,
+            and files by moving the differences instead of replaying the whole dataset.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a class="button primary" href="#quickstart">Quick Start</a>
+            <a class="button secondary" href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO">View Source</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="quick-strip" aria-label="Project status">
+        <div>
+          <strong>3 algorithms</strong>
+          <span>RCDS, IBLT, and full sync</span>
+        </div>
+        <div>
+          <strong>2 modes</strong>
+          <span>Set reconciliation and file pull</span>
+        </div>
+        <div>
+          <strong>Verified</strong>
+          <span>Unit, integration, e2e, and vet</span>
+        </div>
+      </section>
+
+      <section id="quickstart" class="section two-column" aria-labelledby="quickstart-title">
+        <div class="section-copy">
+          <p class="eyebrow">Quick start</p>
+          <h2 id="quickstart-title">Run a real sync locally.</h2>
+          <p>
+            Start a one-shot server with a local set, then connect a client with a different set.
+            Both sides finish with the same reconciled values and byte counters.
+          </p>
+        </div>
+        <div class="terminal" role="img" aria-label="Terminal commands for building and running RCDS">
+          <div class="terminal-bar"><span></span><span></span><span></span></div>
+          <pre><code>make build
+./bin/rcds server --algorithm full \
+  --items server-only,shared \
+  --output server.out
+
+./bin/rcds client --algorithm full \
+  --items client-only,shared \
+  --output client.out</code></pre>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="capabilities-title">
+        <div class="section-heading">
+          <p class="eyebrow">Capabilities</p>
+          <h2 id="capabilities-title">Built for research code that needs to behave like software.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Set reconciliation</h3>
+            <p>Use `rcds`, `iblt`, or `full` from the same CLI and GenSync-compatible API.</p>
+          </article>
+          <article class="feature">
+            <h3>Chunked file pull</h3>
+            <p>Reuses chunks the client already has and verifies the final SHA-256 checksum.</p>
+          </article>
+          <article class="feature">
+            <h3>TCP transport</h3>
+            <p>Length-prefixed payloads, bounded reads, full writes, and one-shot server workflows.</p>
+          </article>
+          <article class="feature">
+            <h3>Tested paths</h3>
+            <p>Unit, integration, and e2e tests exercise the CLI, algorithms, and file workflow.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section protocol" aria-labelledby="protocol-title">
+        <div>
+          <p class="eyebrow">How it flows</p>
+          <h2 id="protocol-title">Metadata first. Payloads only when needed.</h2>
+          <p>
+            RCDS_GO separates the reconciliation decision from payload movement. The set algorithms
+            discover differences; the file path exchanges manifests and missing chunks before writing
+            the verified result.
+          </p>
+        </div>
+        <div class="protocol-visual" role="img" aria-label="Protocol flow from local data to digest, difference, transfer, and verified result">
+          <div>local data</div>
+          <div>digest</div>
+          <div>diff</div>
+          <div>transfer</div>
+          <div>verify</div>
+        </div>
+      </section>
+
+      <section class="section docs-list" aria-labelledby="docs-title">
+        <div class="section-heading">
+          <p class="eyebrow">Documentation</p>
+          <h2 id="docs-title">Pick the entry point that matches your job.</h2>
+        </div>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/CLI.md">
+          <span>CLI Reference</span>
+          <small>Commands, flags, set examples, and file examples.</small>
+        </a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/ARCHITECTURE.md">
+          <span>Architecture</span>
+          <small>Package layout, algorithm adapters, protocol flow, and design notes.</small>
+        </a>
+        <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/docs/DEPLOYMENT.md">
+          <span>Deployment</span>
+          <small>Local binaries, containers, Kubernetes manifests, and production cautions.</small>
+        </a>
+      </section>
+
+      <section class="section research" aria-labelledby="research-title">
+        <p class="eyebrow">Research lineage</p>
+        <h2 id="research-title">Based on scalable set and string reconciliation work.</h2>
+        <p>
+          This implementation builds on the Allerton 2019 RCDS paper, earlier CPISync research,
+          and IBLT-based reconciliation. The goal of the Go project is to make those ideas easier to
+          test, ship, and compare in distributed systems.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>RCDS_GO</span>
+      <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO">GitHub</a>
+      <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/README.md">README</a>
+      <a href="https://github.com/String-Reconciliation-Ditributed-System/RCDS_GO/blob/master/LICENSE">GPL-3.0</a>
+    </footer>
+  </body>
+</html>

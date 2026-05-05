@@ -2,14 +2,22 @@
 
 ## Overview
 
-This document summarizes the comprehensive update performed on the RCDS_GO repository to modernize it, improve documentation, add Kubernetes support, and establish production-ready CI/CD pipelines.
+This document summarizes repository modernization work. It now includes the original repository cleanup plus the newer CLI, file sync, documentation website, and test hardening pass.
+
+## Current Status
+
+- Go baseline is now Go 1.24.
+- `rcds server` and `rcds client` perform real set synchronization.
+- `--mode file` performs exact chunked file pull with SHA-256 verification.
+- GitHub Pages serves the static website from `docs/index.html`.
+- Unit, integration, e2e, coverage, and vet checks are runnable from the Makefile.
 
 ## Completed Tasks
 
 ### Phase 1: Repository Foundation ✅
 
 1. **Go Version Update**
-   - Updated from Go 1.14 to Go 1.21
+   - Updated from Go 1.14 to Go 1.24
    - Updated go.mod and all dependencies
    - Ensured compatibility with modern Go tooling
 
@@ -17,6 +25,8 @@ This document summarizes the comprehensive update performed on the RCDS_GO repos
    - Enhanced Makefile with comprehensive targets:
      - `make build` - Build binary
      - `make test` - Run tests
+     - `make integration-test` - Run build-tagged integration tests
+     - `make e2e-test` - Run build-tagged CLI e2e tests
      - `make test-coverage` - Coverage report
      - `make fmt` - Format code
      - `make vet` - Run go vet
@@ -75,7 +85,7 @@ This document summarizes the comprehensive update performed on the RCDS_GO repos
 2. **CI/CD Testing**
    - Separate lint, test, and build jobs
    - Code coverage reporting with codecov
-   - E2E test workflow (placeholder for full implementation)
+   - E2E and integration workflows that run real CLI and TCP sync scenarios
 
 ### Phase 4: CI/CD Workflows ✅
 
@@ -88,8 +98,8 @@ Created 5 comprehensive workflows:
    - Proper permissions for security
 
 2. **e2e.yml** - End-to-End Testing
-   - E2E test placeholder
-   - Integration test placeholder
+   - E2E CLI tests
+   - Integration reconciliation tests
 
 3. **security.yml** - Security Scanning
    - govulncheck for vulnerability detection
@@ -146,7 +156,7 @@ Created 5 comprehensive workflows:
 
 3. **GitHub Pages**
    - Automatic documentation deployment
-   - Clean, professional landing page
+   - Static project website in `docs/index.html`
 
 ## File Statistics
 
