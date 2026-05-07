@@ -177,6 +177,9 @@ func Pull(ctx context.Context, host string, port int, destinationPath string, op
 	if resp.Version != protocolVersion {
 		return SyncResult{}, fmt.Errorf("unsupported file sync protocol version %d", resp.Version)
 	}
+	if err := validateResponseManifest(resp); err != nil {
+		return SyncResult{}, err
+	}
 
 	var transferred int64
 	for _, c := range resp.Chunks {
@@ -237,11 +240,19 @@ func readChunks(path string, chunkSize int) ([]chunk, int64, string, error) {
 	}
 	defer f.Close()
 
+	capacity := 0
+	if info, statErr := f.Stat(); statErr == nil && info.Size() > 0 {
+		estimatedChunks := (info.Size() + int64(chunkSize) - 1) / int64(chunkSize)
+		if estimatedChunks < 1_000_000 {
+			capacity = int(estimatedChunks)
+		}
+	}
+
 	fullHash := sha256.New()
-	chunks := make([]chunk, 0)
+	chunks := make([]chunk, 0, capacity)
 	var size int64
+	buf := make([]byte, chunkSize)
 	for {
-		buf := make([]byte, chunkSize)
 		n, err := f.Read(buf)
 		if n > 0 {
 			data := append([]byte(nil), buf[:n]...)
@@ -286,6 +297,10 @@ func writeManifest(path string, manifest []chunk, chunks map[string][]byte, expe
 
 	fullHash := sha256.New()
 	for _, ref := range manifest {
+		if ref.Size < 0 {
+			_ = tmp.Close()
+			return fmt.Errorf("chunk %s has negative size %d", ref.Hash, ref.Size)
+		}
 		data, ok := chunks[ref.Hash]
 		if !ok {
 			_ = tmp.Close()
@@ -294,6 +309,11 @@ func writeManifest(path string, manifest []chunk, chunks map[string][]byte, expe
 		if len(data) != ref.Size {
 			_ = tmp.Close()
 			return fmt.Errorf("chunk %s size mismatch: expected %d, got %d", ref.Hash, ref.Size, len(data))
+		}
+		sum := sha256.Sum256(data)
+		if actual := hex.EncodeToString(sum[:]); actual != ref.Hash {
+			_ = tmp.Close()
+			return fmt.Errorf("chunk %s hash mismatch: got %s", ref.Hash, actual)
 		}
 		if _, err := tmp.Write(data); err != nil {
 			_ = tmp.Close()
@@ -316,6 +336,20 @@ func writeManifest(path string, manifest []chunk, chunks map[string][]byte, expe
 		return err
 	}
 	cleanup = false
+	return nil
+}
+
+func validateResponseManifest(resp fileSyncResponse) error {
+	var manifestSize int64
+	for _, ref := range resp.Manifest {
+		if ref.Size < 0 {
+			return fmt.Errorf("chunk %s has negative size %d", ref.Hash, ref.Size)
+		}
+		manifestSize += int64(ref.Size)
+	}
+	if manifestSize != resp.FileSize {
+		return fmt.Errorf("manifest size mismatch: response file_size=%d manifest_bytes=%d", resp.FileSize, manifestSize)
+	}
 	return nil
 }
 

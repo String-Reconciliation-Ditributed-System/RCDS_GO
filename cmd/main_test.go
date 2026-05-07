@@ -70,6 +70,7 @@ func TestParseCommandFlagsRejectsInvalidValues(t *testing.T) {
 		{"--algorithm", "invalid"},
 		{"--expected-diff", "0"},
 		{"--max-retries", "-1"},
+		{"--timeout", "-1s"},
 		{"--chunk-size", "0"},
 		{"unexpected"},
 	}

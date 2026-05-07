@@ -40,6 +40,7 @@ See [docs/PAPER.md](docs/PAPER.md) for the research-to-code map, current impleme
 - [Usage](#usage)
 - [Architecture](#architecture)
 - [Algorithms](#algorithms)
+- [GA Readiness](#ga-readiness)
 - [API Documentation](#api-documentation)
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Contributing](#contributing)
@@ -215,6 +216,10 @@ RCDS uses a layered architecture:
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 For command-line details, see [docs/CLI.md](docs/CLI.md).
+
+## GA Readiness
+
+The current codebase is suitable for MVP validation and controlled experiments, but it is not a GA production release yet. See [docs/GA_READINESS.md](docs/GA_READINESS.md) for the release blockers, execution plan, and verification matrix.
 
 ## Algorithms
 

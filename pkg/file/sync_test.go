@@ -2,9 +2,12 @@ package file
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,6 +60,82 @@ func TestWriteManifestRejectsMissingChunk(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected missing chunk error")
+	}
+}
+
+func TestWriteManifestRejectsSizeMismatch(t *testing.T) {
+	hash := sha256.Sum256([]byte("abc"))
+	err := writeManifest(
+		filepath.Join(t.TempDir(), "copy.txt"),
+		[]chunk{{Hash: hex.EncodeToString(hash[:]), Size: 4}},
+		map[string][]byte{hex.EncodeToString(hash[:]): []byte("abc")},
+		hex.EncodeToString(hash[:]),
+	)
+	if err == nil || !strings.Contains(err.Error(), "size mismatch") {
+		t.Fatalf("expected size mismatch error, got %v", err)
+	}
+}
+
+func TestWriteManifestRejectsNegativeChunkSize(t *testing.T) {
+	hash := sha256.Sum256([]byte("abc"))
+	err := writeManifest(
+		filepath.Join(t.TempDir(), "copy.txt"),
+		[]chunk{{Hash: hex.EncodeToString(hash[:]), Size: -1}},
+		map[string][]byte{hex.EncodeToString(hash[:]): []byte("abc")},
+		hex.EncodeToString(hash[:]),
+	)
+	if err == nil || !strings.Contains(err.Error(), "negative size") {
+		t.Fatalf("expected negative size error, got %v", err)
+	}
+}
+
+func TestWriteManifestRejectsChunkHashMismatch(t *testing.T) {
+	actualHash := sha256.Sum256([]byte("abc"))
+	declaredHash := sha256.Sum256([]byte("xyz"))
+	err := writeManifest(
+		filepath.Join(t.TempDir(), "copy.txt"),
+		[]chunk{{Hash: hex.EncodeToString(declaredHash[:]), Size: 3}},
+		map[string][]byte{hex.EncodeToString(declaredHash[:]): []byte("abc")},
+		hex.EncodeToString(actualHash[:]),
+	)
+	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
+		t.Fatalf("expected hash mismatch error, got %v", err)
+	}
+}
+
+func TestValidateResponseManifestRejectsFileSizeMismatch(t *testing.T) {
+	err := validateResponseManifest(fileSyncResponse{
+		FileSize: 4,
+		Manifest: []chunk{
+			{Hash: "a", Size: 2},
+			{Hash: "b", Size: 1},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "manifest size mismatch") {
+		t.Fatalf("expected manifest size mismatch, got %v", err)
+	}
+}
+
+func TestValidateResponseManifestRejectsNegativeChunkSize(t *testing.T) {
+	err := validateResponseManifest(fileSyncResponse{
+		FileSize: 0,
+		Manifest: []chunk{
+			{Hash: "a", Size: -1},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "negative size") {
+		t.Fatalf("expected negative size error, got %v", err)
+	}
+}
+
+func TestReadChunksIfMissingUsesEmptyChecksum(t *testing.T) {
+	_, size, checksum, err := readChunksIfExists(filepath.Join(t.TempDir(), "missing.bin"), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emptyHash := sha256.Sum256(nil)
+	if size != 0 || checksum != hex.EncodeToString(emptyHash[:]) {
+		t.Fatalf("unexpected missing file result: size=%d checksum=%s", size, checksum)
 	}
 }
 
@@ -114,8 +193,35 @@ func freePort(t *testing.T) int {
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("localhost TCP bind is not permitted in this environment: %v", err)
+		}
 		t.Fatal(err)
 	}
 	defer listener.Close()
 	return listener.Addr().(*net.TCPAddr).Port
+}
+
+func BenchmarkReadChunks1MiB(b *testing.B) {
+	source := filepath.Join(b.TempDir(), "source.bin")
+	content := make([]byte, 1<<20)
+	for i := range content {
+		content[i] = byte(i % 251)
+	}
+	if err := os.WriteFile(source, content, 0644); err != nil {
+		b.Fatal(err)
+	}
+
+	b.SetBytes(int64(len(content)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		chunks, size, checksum, err := readChunks(source, defaultChunkSize)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if size != int64(len(content)) || checksum == "" || len(chunks) != 16 {
+			b.Fatalf("unexpected read result: size=%d checksum=%q chunks=%d", size, checksum, len(chunks))
+		}
+	}
 }

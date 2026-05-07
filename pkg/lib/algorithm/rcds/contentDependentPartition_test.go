@@ -19,6 +19,9 @@ func TestStringToHashContent(t *testing.T) {
 	emptyString := ""
 	_, err = stringToHashContent(&emptyString, 3, 16)
 	assert.Error(t, err)
+
+	_, err = stringToHashContent(&tmpStr, 3, 0)
+	assert.Error(t, err)
 }
 
 func TestContentDependentChunking(t *testing.T) {

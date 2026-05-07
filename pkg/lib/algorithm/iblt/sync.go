@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 
 	iblt "github.com/SheldonZhong/go-IBLT"
-	"github.com/sirupsen/logrus"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
@@ -22,6 +22,7 @@ type ibltSync struct {
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
+	Timeout       time.Duration
 	options       ibltOptions
 }
 
@@ -56,6 +57,10 @@ func NewIBLTSetSync(option ...IBLTOption) (genSync.GenSync, error) {
 
 func (i *ibltSync) SetFreezeLocal(freezeLocal bool) {
 	i.FreezeLocal = freezeLocal
+}
+
+func (i *ibltSync) SetTimeout(timeout time.Duration) {
+	i.Timeout = timeout
 }
 
 func (i *ibltSync) AddElement(elem interface{}) error {
@@ -130,7 +135,7 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 	// refresh additionals at each sync session.
 	i.additionals = set.New()
 
-	client, err := genSync.NewTcpConnection(ip, port)
+	client, err := genSync.NewTcpConnectionWithTimeout(ip, port, i.Timeout)
 	if err != nil {
 		return err
 	}
@@ -155,7 +160,6 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 		return err
 	}
 	if util.BytesToUint64(serverDigest) == digest {
-		logrus.Info("No sync operation necessary, local and remote digests are the same.")
 		_, err = client.Send([]byte{genSync.SYNC_SKIP})
 		if err != nil {
 			return err
@@ -181,7 +185,7 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 	if skipSync, err := client.ReceiveSkipSyncBoolWithInfo("Client is using IBLT with %+v and is miss matching parameters with server", i.options); err != nil {
 		return err
 	} else if skipSync {
-		return nil
+		return fmt.Errorf("IBLT parameter mismatch: client options %+v were rejected by server", i.options)
 	}
 
 	// Send table to server to extract the differences
@@ -214,7 +218,11 @@ func (i *ibltSync) SyncClient(ip string, port int) error {
 				return err
 			}
 			for _, h := range diffHash {
-				if _, err := client.Send(i.Set.Get(h).([]byte)); err != nil {
+				elem, err := i.elementBytesForKey(h)
+				if err != nil {
+					return err
+				}
+				if _, err := client.Send(elem); err != nil {
 					return err
 				}
 			}
@@ -247,7 +255,7 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 	// refresh additionals at each sync session.
 	i.additionals = set.New()
 
-	server, err := genSync.NewTcpConnection(ip, port)
+	server, err := genSync.NewTcpConnectionWithTimeout(ip, port, i.Timeout)
 	if err != nil {
 		return err
 	}
@@ -288,8 +296,12 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 		return err
 	}
 
-	if err = server.SendSkipSyncBoolWithInfo(opt != i.options, "Server is using IBLT with %+v and is miss matching parameters with incoming sync %+v", i.options, opt); err != nil {
+	optionsMismatch := opt != i.options
+	if err = server.SendSkipSyncBoolWithInfo(optionsMismatch, "Server is using IBLT with %+v and is miss matching parameters with incoming sync %+v", i.options, opt); err != nil {
 		return err
+	}
+	if optionsMismatch {
+		return fmt.Errorf("IBLT parameter mismatch: server options %+v do not match client options %+v", i.options, opt)
 	}
 
 	// Receive table from client to extract the differences
@@ -306,7 +318,7 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 		return err
 	}
 	diff, err := clientTable.Decode()
-	if statusErr := server.SendSkipSyncBoolWithInfo(i.options.MaxSyncRetry > 0 && err == nil, "IBLT decode success, resync not necessary"); statusErr != nil {
+	if statusErr := server.SendSkipSyncBoolWithInfo(err == nil, "IBLT decode success, resync not necessary"); statusErr != nil {
 		return statusErr
 	}
 	if err != nil {
@@ -346,8 +358,6 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 				return err
 			}
 		}
-	} else {
-		logrus.Info("Server is freezing local set and skipping set update.")
 	}
 
 	if skipSync, err := server.ReceiveSkipSyncBoolWithInfo("Client is freezing local, skipping the rest of the sync..."); err != nil {
@@ -362,7 +372,11 @@ func (i *ibltSync) SyncServer(ip string, port int) error {
 			return err
 		}
 		for _, h := range diff.BetaSlice() {
-			if _, err := server.Send(i.Set.Get(h).([]byte)); err != nil {
+			elem, err := i.elementBytesForKey(h)
+			if err != nil {
+				return err
+			}
+			if _, err := server.Send(elem); err != nil {
 				return err
 			}
 		}
@@ -395,10 +409,17 @@ func (i *ibltSync) GetSetAdditions() *set.Set {
 	return i.additionals
 }
 
+func (i *ibltSync) elementBytesForKey(key []byte) ([]byte, error) {
+	elem, ok := i.Set.Get(key).([]byte)
+	if !ok {
+		return nil, fmt.Errorf("missing original element for IBLT hash %x", key)
+	}
+	return elem, nil
+}
+
 // resyncServer double the IBLT size and resync with client
 func (i *ibltSync) resyncServer(connection genSync.Connection) (diff *iblt.Diff, syncErr error) {
 	for j := 0; j < i.options.MaxSyncRetry; j++ {
-		logrus.Debugf("server sync retires %d...", j+1)
 		clientTableData, err := connection.Receive()
 		if err != nil {
 			syncErr = err
@@ -428,7 +449,6 @@ func (i *ibltSync) resyncServer(connection genSync.Connection) (diff *iblt.Diff,
 // resyncClient double the IBLT size and resync with client
 func (i *ibltSync) resyncClient(connection genSync.Connection) (syncErr error) {
 	for j := 0; j < i.options.MaxSyncRetry; j++ {
-		logrus.Debugf("client sync retires %d...", j+1)
 		tableData, err := i.resyncIBLTs[j].Serialize()
 		if err != nil {
 			syncErr = err

@@ -34,7 +34,7 @@ Servers handle one client and then exit by default. Pass `--once=false` to keep 
 | `--file` | empty | file mode | File source for server, destination for client. |
 | `--expected-diff` | `100` | IBLT set mode | Expected symmetric difference for IBLT sizing. |
 | `--max-retries` | `3` | IBLT set mode | Additional IBLT retry tables. |
-| `--timeout` | `30s` | file mode | Network timeout for file sync. |
+| `--timeout` | `30s` | server, client | Network timeout. Set servers apply it while waiting for a client and during active connections; clients use it while dialing and during active connections. |
 | `--chunk-size` | `65536` | file mode | Fixed chunk size in bytes. |
 | `--freeze-local` | `false` | set mode | Do not apply remote additions locally. |
 | `--once` | `true` | server | Exit after one client. |
@@ -110,10 +110,11 @@ For paper background and implementation boundaries, see [PAPER.md](PAPER.md).
 ## Verification
 
 ```bash
-make test
-make integration-test
-make e2e-test
 go vet ./...
+go test -race ./...
+go test -tags integration ./test/integration -v
+go test -tags e2e ./test/e2e -v
 ```
 
 `make integration-test` and `make e2e-test` use Go build tags and exercise localhost TCP workflows.
+The full GA verification checklist lives in [GA_READINESS.md](GA_READINESS.md).

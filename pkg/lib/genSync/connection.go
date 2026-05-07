@@ -7,9 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/util/retry"
+	"time"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
 )
@@ -39,19 +37,29 @@ type socketConnection struct {
 	connection    *net.TCPConn
 	sentBytes     int
 	receivedBytes int
+	timeout       time.Duration
 }
 
 // Original TCP buffer size for slower networks.
 const bufferSize int = 65535
 const maxPayloadSize int = 1 << 30
 const maxSliceItems int = 10_000_000
+const connectRetryAttempts int = 5
+const connectRetryDelay = 100 * time.Millisecond
 
 func NewTcpConnection(ipAddr string, port int) (Connection, error) {
+	return NewTcpConnectionWithTimeout(ipAddr, port, 0)
+}
+
+func NewTcpConnectionWithTimeout(ipAddr string, port int, timeout time.Duration) (Connection, error) {
 	if ipAddr == "" {
-		ipAddr = "localhost"
+		ipAddr = "127.0.0.1"
 	}
 	if port < 1 || port > 65535 {
 		return nil, fmt.Errorf("port number must be between 1 and 65535, got %d", port)
+	}
+	if timeout < 0 {
+		return nil, fmt.Errorf("timeout must be non-negative")
 	}
 	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ipAddr, strconv.Itoa(port)))
 	if err != nil {
@@ -59,19 +67,53 @@ func NewTcpConnection(ipAddr string, port int) (Connection, error) {
 	}
 	return &socketConnection{
 		tcpAddress: addr,
+		timeout:    timeout,
 	}, nil
 }
 
 // Connect tries to connect with server and fails upon several retries.
 func (s *socketConnection) Connect() error {
-	var err error
-	logrus.Infof("connecting to: %v", s.tcpAddress)
-	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		return err != nil
-	}, func() error {
-		s.connection, err = net.DialTCP("tcp", nil, s.tcpAddress)
-		return err
-	})
+	var lastErr error
+	deadline := time.Time{}
+	if s.timeout > 0 {
+		deadline = time.Now().Add(s.timeout)
+	}
+
+	for attempt := 0; attempt < connectRetryAttempts; attempt++ {
+		timeout := s.timeout
+		if !deadline.IsZero() {
+			remaining := time.Until(deadline)
+			if remaining <= 0 {
+				break
+			}
+			timeout = remaining
+		}
+
+		dialer := net.Dialer{Timeout: timeout}
+		conn, err := dialer.Dial("tcp", s.tcpAddress.String())
+		if err == nil {
+			tcpConn, ok := conn.(*net.TCPConn)
+			if !ok {
+				_ = conn.Close()
+				return fmt.Errorf("expected TCP connection, got %T", conn)
+			}
+			s.connection = tcpConn
+			return s.setConnectionDeadline()
+		}
+		lastErr = err
+
+		if attempt == connectRetryAttempts-1 {
+			break
+		}
+		if !deadline.IsZero() && time.Until(deadline) <= connectRetryDelay {
+			break
+		}
+		time.Sleep(connectRetryDelay)
+	}
+	if lastErr == nil {
+		return fmt.Errorf("failed to connect to %v before timeout", s.tcpAddress)
+	}
+	return fmt.Errorf("failed to connect to %v: %w", s.tcpAddress, lastErr)
 }
 
 func (s *socketConnection) Send(data []byte) (int, error) {
@@ -91,13 +133,24 @@ func (s *socketConnection) Send(data []byte) (int, error) {
 func (s *socketConnection) Listen() error {
 	var err error
 	s.listener, err = net.ListenTCP("tcp", s.tcpAddress)
-	logrus.Infof("listening on: %v", s.tcpAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
+	if s.timeout > 0 {
+		if err := s.listener.SetDeadline(time.Now().Add(s.timeout)); err != nil {
+			_ = s.listener.Close()
+			s.listener = nil
+			return err
+		}
+	}
 
 	s.connection, err = s.listener.AcceptTCP()
-	return err
+	if err != nil {
+		_ = s.listener.Close()
+		s.listener = nil
+		return err
+	}
+	return s.setConnectionDeadline()
 }
 
 func (s *socketConnection) Receive() ([]byte, error) {
@@ -169,7 +222,6 @@ func (s *socketConnection) ReceiveBytesSlice() ([][]byte, error) {
 // SendSkipSyncWithInfo sends skip or continue sync. If true, signals skip sync else continue.
 func (s *socketConnection) SendSkipSyncBoolWithInfo(skipSync bool, format string, args ...interface{}) error {
 	if skipSync {
-		logrus.Infof(format, args...)
 		if _, err := s.Send([]byte{SYNC_SKIP}); err != nil {
 			return err
 		}
@@ -189,7 +241,6 @@ func (s *socketConnection) ReceiveSkipSyncBoolWithInfo(format string, args ...in
 	}
 
 	if len(syncStatus) == 1 && syncStatus[0] == SYNC_SKIP {
-		logrus.Infof(format, args...)
 		return true, nil
 	} else if len(syncStatus) == 1 && syncStatus[0] == SYNC_CONTINUE {
 		return false, nil
@@ -218,7 +269,6 @@ func (s *socketConnection) Close() error {
 	var errs []error
 	if s.listener != nil {
 		if err := s.listener.Close(); err != nil {
-			logrus.Debugf("failed to close listener, %v", err)
 			errs = append(errs, err)
 		}
 	}
@@ -257,4 +307,11 @@ func writeFull(w io.Writer, data []byte) (int, error) {
 		err = io.ErrShortWrite
 	}
 	return n, err
+}
+
+func (s *socketConnection) setConnectionDeadline() error {
+	if s.timeout <= 0 || s.connection == nil {
+		return nil
+	}
+	return s.connection.SetDeadline(time.Now().Add(s.timeout))
 }

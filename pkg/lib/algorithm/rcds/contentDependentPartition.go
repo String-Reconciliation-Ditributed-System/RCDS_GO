@@ -5,13 +5,9 @@ import (
 
 	rbtree "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
-	logger "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm"
 )
-
-// global log for algorithm
-var log = logger.Log.WithName("algorithm")
 
 // stringToHashContent converts string into an array of content hash values with the rolling hash algorithm and
 // returns error if fails in anyway.
@@ -20,8 +16,8 @@ func stringToHashContent(s *string, rollingWinSize, hashSpace int) (*[]uint64, e
 	if rollingWinSize < 1 {
 		return nil, fmt.Errorf("rolling window size should be one or bigger")
 	}
-	if hashSpace < 0 {
-		return nil, fmt.Errorf("hash space should be a non-negative value")
+	if hashSpace <= 0 {
+		return nil, fmt.Errorf("hash space should be a positive value")
 	}
 
 	contentHashSize := len(*s) - rollingWinSize + 1
@@ -60,7 +56,6 @@ func contentDependentChunking(s *string, h, r, hs int) (chunks []string, err err
 	// Convert string into an array of hashes.
 	hArr, err := stringToHashContent(s, r, hs)
 	if err != nil {
-		log.V(2).Info(fmt.Sprintf("failed to convert string to hash array: '%s'", *s))
 		return nil, fmt.Errorf("error converting string into an hash array, %v", err)
 	}
 

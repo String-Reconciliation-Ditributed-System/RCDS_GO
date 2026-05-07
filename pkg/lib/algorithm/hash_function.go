@@ -2,6 +2,11 @@ package algorithm
 
 import (
 	"crypto"
+	_ "crypto/md5"
+	_ "crypto/sha1"
+	_ "crypto/sha256"
+	_ "crypto/sha512"
+	"fmt"
 	"hash/fnv"
 )
 
@@ -18,6 +23,11 @@ func HashString(s string) *hashData {
 }
 
 func HashBytesWithCryptoFunc(b []byte, hash crypto.Hash) *hashData {
+	if !hash.Available() {
+		return &hashData{
+			err: fmt.Errorf("hash function %s is unavailable", hash),
+		}
+	}
 	h := hash.New()
 	_, herr := h.Write(b)
 	return &hashData{

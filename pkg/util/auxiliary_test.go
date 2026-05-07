@@ -3,33 +3,43 @@ package util
 import (
 	"math"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBytesAndIntConversion(t *testing.T) {
 	testInts := []int{0, 1, 3000, -3000, 650, math.MaxInt32, math.MinInt32}
 	for _, i := range testInts {
-		assert.Equal(t, i, BytesToInt(IntToBytes(i)))
+		if got := BytesToInt(IntToBytes(i)); got != i {
+			t.Fatalf("BytesToInt(IntToBytes(%d)) = %d", i, got)
+		}
 	}
-	assert.Len(t, IntToBytes(1), 8)
+	if got := len(IntToBytes(1)); got != 8 {
+		t.Fatalf("len(IntToBytes(1)) = %d, want 8", got)
+	}
 }
 
 func TestBytesAndInt64Conversion(t *testing.T) {
 	testInts := []int64{0, 1, 3000, math.MaxInt64, math.MinInt64}
 	for _, i := range testInts {
-		assert.Equal(t, i, BytesToInt64(Int64ToBytes(i)))
+		if got := BytesToInt64(Int64ToBytes(i)); got != i {
+			t.Fatalf("BytesToInt64(Int64ToBytes(%d)) = %d", i, got)
+		}
 	}
 }
 
 func TestBytesAndUint64Conversion(t *testing.T) {
 	testInts := []uint64{0, 1, 3000, math.MaxUint64}
 	for _, i := range testInts {
-		assert.Equal(t, i, BytesToUint64(Uint64ToBytes(i)))
+		if got := BytesToUint64(Uint64ToBytes(i)); got != i {
+			t.Fatalf("BytesToUint64(Uint64ToBytes(%d)) = %d", i, got)
+		}
 	}
 }
 
 func TestBytesToUint64PadsShortInputs(t *testing.T) {
-	assert.Equal(t, uint64(1), BytesToUint64([]byte{1}))
-	assert.Equal(t, int64(1), BytesToInt64([]byte{1}))
+	if got := BytesToUint64([]byte{1}); got != 1 {
+		t.Fatalf("BytesToUint64([]byte{1}) = %d, want 1", got)
+	}
+	if got := BytesToInt64([]byte{1}); got != 1 {
+		t.Fatalf("BytesToInt64([]byte{1}) = %d, want 1", got)
+	}
 }

@@ -10,15 +10,36 @@
 - CLI reference documentation in `docs/CLI.md`.
 - Expanded unit, integration, and e2e tests.
 - CI now uses Go 1.24 and fails build-tagged test workflows on failures.
+- GA readiness documentation in `docs/GA_READINESS.md`.
+
+### Fixes
+
+- File sync rejects manifest chunks when the bytes do not match the declared chunk hash.
+- File sync rejects manifests whose declared file size does not match the reconstructed manifest bytes.
+- IBLT parameter mismatches now return explicit client/server errors.
+- Active set-sync sessions now honor CLI `--timeout` through the shared GenSync transport.
+- Set-sync listeners now honor configured timeouts while waiting for the first client.
+- Invalid or unavailable crypto hash selections now fail cleanly.
+- RCDS content-dependent partitioning rejects zero hash-space values.
+- Set difference now preserves values from the left-hand set.
+- Set intersection now preserves values from the left-hand set.
+- File chunk reads allocate less memory by reusing the read buffer.
+- File chunk metadata allocation is pre-sized when file size is known.
+- Runtime logrus usage, unused controller-runtime/zap logging dependencies, and the direct client-go retry dependency were removed.
+- IBLT tests avoid fixed ports and correct randomized symmetric-difference sizing.
+- Removed the stale Travis CI release configuration.
+- Release tags now run fmt, vet, race, integration, e2e, govulncheck, and gosec gates before artifact builds.
 
 ### Verification
 
 ```bash
-make test
-make integration-test
-make e2e-test
 go vet ./...
+go test -race ./...
+go test -tags integration ./test/integration -v
+go test -tags e2e ./test/e2e -v
 ```
+
+GA release status and remaining blockers are tracked in `docs/GA_READINESS.md`.
 
 ## Version 0.2.0
 

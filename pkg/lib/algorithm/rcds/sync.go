@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/algorithm/full_sync"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
@@ -28,6 +29,7 @@ type rcdsSync struct {
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
+	Timeout       time.Duration
 
 	h         int
 	r         int
@@ -110,6 +112,13 @@ func NewRCDSSetSync(option ...RCDSOption) (genSync.GenSync, error) {
 func (r *rcdsSync) SetFreezeLocal(freezeLocal bool) {
 	r.FreezeLocal = freezeLocal
 	r.backend.SetFreezeLocal(freezeLocal)
+}
+
+func (r *rcdsSync) SetTimeout(timeout time.Duration) {
+	r.Timeout = timeout
+	if setter, ok := r.backend.(interface{ SetTimeout(time.Duration) }); ok {
+		setter.SetTimeout(timeout)
+	}
 }
 
 func (r *rcdsSync) AddElement(elem interface{}) error {

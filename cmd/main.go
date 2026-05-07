@@ -88,7 +88,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --file <path>              File source/destination for --mode file")
 	fmt.Fprintln(w, "  --expected-diff <n>        Expected symmetric difference for IBLT (default: 100)")
 	fmt.Fprintln(w, "  --max-retries <n>          IBLT retry count (default: 3)")
-	fmt.Fprintln(w, "  --timeout <duration>       File sync network timeout (default: 30s)")
+	fmt.Fprintln(w, "  --timeout <duration>       Network operation timeout after connection (default: 30s)")
 	fmt.Fprintln(w, "  --chunk-size <bytes>       File sync chunk size (default: 65536)")
 	fmt.Fprintln(w, "  --freeze-local             Do not apply remote set additions locally")
 	fmt.Fprintln(w, "  --once                     Server handles one client then exits (default: true)")
@@ -158,6 +158,9 @@ func parseCommandFlags(command string, args []string, stderr io.Writer) (*cliCon
 	}
 	if config.maxRetries < 0 {
 		return nil, fmt.Errorf("max-retries must be non-negative")
+	}
+	if config.timeout < 0 {
+		return nil, fmt.Errorf("timeout must be non-negative")
 	}
 	if config.chunkSize <= 0 {
 		return nil, fmt.Errorf("chunk-size must be positive")
@@ -298,19 +301,30 @@ func runFileClient(ctx context.Context, config *cliConfig, stdout, stderr io.Wri
 }
 
 func newSetSyncer(config *cliConfig) (genSync.GenSync, error) {
+	var (
+		syncer genSync.GenSync
+		err    error
+	)
 	switch config.algorithm {
 	case "full":
-		return full_sync.NewFullSetSync()
+		syncer, err = full_sync.NewFullSetSync()
 	case "iblt":
-		return iblt.NewIBLTSetSync(
+		syncer, err = iblt.NewIBLTSetSync(
 			iblt.WithSymmetricSetDiff(config.expectedDiff),
 			iblt.WithMaxSyncRetries(config.maxRetries),
 		)
 	case "rcds":
-		return rcds.NewRCDSSetSync()
+		syncer, err = rcds.NewRCDSSetSync()
 	default:
 		return nil, fmt.Errorf("invalid algorithm %q", config.algorithm)
 	}
+	if err != nil {
+		return nil, err
+	}
+	if setter, ok := syncer.(interface{ SetTimeout(time.Duration) }); ok {
+		setter.SetTimeout(config.timeout)
+	}
+	return syncer, nil
 }
 
 func addConfiguredElements(syncer genSync.GenSync, config *cliConfig) error {

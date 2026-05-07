@@ -2,9 +2,6 @@ package algorithm
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAddToDict(t *testing.T) {
@@ -17,18 +14,24 @@ func TestAddToDict(t *testing.T) {
 	}
 	for _, in := range inputs {
 		_, err := testDict.AddToDict(in)
-		assert.NoError(t, err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Test Hash Collision
 	s := "abced"
 	sFail := "failed"
 	_, err := HashString(s).ToUint64()
-	require.NoError(t, err, "failed to convert string to hash")
+	if err != nil {
+		t.Fatalf("failed to convert string to hash: %v", err)
+	}
 
 	hash, err := testDict.AddToDict(s)
 	testDict[hash] = sFail
-	assert.NoError(t, err, "dictionary added a collision")
+	if err != nil {
+		t.Fatalf("dictionary added a collision: %v", err)
+	}
 }
 
 func TestLookupDict(t *testing.T) {
@@ -36,18 +39,28 @@ func TestLookupDict(t *testing.T) {
 	t.Run("Dictionary lookup", func(t *testing.T) {
 		s := "abcd"
 		hash, err := testDict.AddToDict(s)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		lookup, err := testDict.LookupDict(hash)
-		assert.NoError(t, err)
-		assert.Equal(t, s, lookup)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lookup != s {
+			t.Fatalf("LookupDict(%d) = %q, want %q", hash, lookup, s)
+		}
 	})
 
 	t.Run("Lookup nonexistent item", func(t *testing.T) {
 		hash, err := HashString("This does not exist").ToUint64()
-		require.NoError(t, err, "failed to convert string to hash")
+		if err != nil {
+			t.Fatalf("failed to convert string to hash: %v", err)
+		}
 		_, err = testDict.LookupDict(hash)
-		assert.Error(t, err)
+		if err == nil {
+			t.Fatal("expected missing hash error")
+		}
 	})
 
 }

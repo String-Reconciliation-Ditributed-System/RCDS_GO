@@ -3,8 +3,6 @@ package algorithm
 import (
 	"crypto"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestHashBytesWithCryptoFunc(t *testing.T) {
@@ -32,7 +30,18 @@ func TestHashBytesWithCryptoFunc(t *testing.T) {
 
 	for _, tt := range tests {
 		hash, err := HashBytesWithCryptoFunc(tt.hashInput, tt.function).ToBytes()
-		assert.NoError(t, err)
-		assert.Len(t, hash, tt.hashLen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(hash) != tt.hashLen {
+			t.Fatalf("len(hash) = %d, want %d", len(hash), tt.hashLen)
+		}
+	}
+}
+
+func TestHashBytesWithCryptoFuncRejectsUnavailableHash(t *testing.T) {
+	_, err := HashBytesWithCryptoFunc([]byte("test"), crypto.Hash(0)).ToBytes()
+	if err == nil {
+		t.Fatal("expected unavailable hash error")
 	}
 }

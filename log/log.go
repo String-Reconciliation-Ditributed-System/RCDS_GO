@@ -1,23 +1,26 @@
 package log
 
 import (
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-	logger "sigs.k8s.io/controller-runtime/pkg/log"
+	"log/slog"
+	"os"
+	"strings"
 )
 
-// SetLogLevel sets the level of log for display in command line using zapcore.Levels ("debug", "info", "warn",
-// "error", "dpanic", "panic", and "fatal") returns an error if input log level is not understandable.
+// SetLogLevel sets the process-wide structured logger level. Valid levels include
+// "debug", "info", "warn", and "error". Legacy zap levels above error are
+// accepted and mapped to error.
 func SetLogLevel(logLevel []byte) error {
-	cfg := zap.NewDevelopmentConfig()
-	if err := cfg.Level.UnmarshalText(logLevel); err != nil {
-		return err
+	var level slog.Level
+	switch strings.ToLower(strings.TrimSpace(string(logLevel))) {
+	case "dpanic", "panic", "fatal":
+		level = slog.LevelError
+	default:
+		if err := level.UnmarshalText(logLevel); err != nil {
+			return err
+		}
 	}
-	// Building a logger wrapper.
-	zapLog, err := cfg.Build()
-	if err != nil {
-		return err
-	}
-	logger.SetLogger(zapr.NewLogger(zapLog))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: level,
+	})))
 	return nil
 }

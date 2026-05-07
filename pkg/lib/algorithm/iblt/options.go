@@ -24,11 +24,21 @@ func (i *ibltOptions) complete() error {
 	if i.SymmetricDiff <= 0 {
 		return fmt.Errorf("number of difference should be positive")
 	}
-	// if Datalen is not set, which also says hash is not set, we go to default setting.
-	if i.DataLen == 0 {
+	// If DataLen is not set, default to hash sync so variable-sized elements are safe.
+	if i.DataLen == 0 && !i.HashSync {
 		i.HashSync = true
 		i.HashFunc = crypto.SHA256
-		i.DataLen = crypto.SHA256.Size()
+	}
+	if i.HashSync {
+		if i.HashFunc == 0 {
+			return fmt.Errorf("hash function should be specified")
+		}
+		if !i.HashFunc.Available() {
+			return fmt.Errorf("hash function %s is unavailable", i.HashFunc)
+		}
+		i.DataLen = i.HashFunc.Size()
+	} else if i.DataLen <= 0 {
+		return fmt.Errorf("data length should be positive")
 	}
 	if i.TableSizeConstant == 0 {
 		i.TableSizeConstant = 2.5
@@ -56,7 +66,6 @@ func WithHashFunc(hashFunc crypto.Hash) IBLTOption {
 	return func(option *ibltOptions) {
 		option.HashFunc = hashFunc
 		option.HashSync = true
-		option.DataLen = hashFunc.Size()
 	}
 }
 

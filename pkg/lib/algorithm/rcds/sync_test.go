@@ -1,13 +1,32 @@
 package rcds
 
 import (
+	mathrand "math/rand"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
+
+var rand = newTestRand()
+
+type testRand struct {
+	source *mathrand.Rand
+}
+
+func newTestRand() *testRand {
+	return &testRand{source: mathrand.New(mathrand.NewSource(1))}
+}
+
+func (r *testRand) String(length int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	buf := make([]byte, length)
+	for i := range buf {
+		buf[i] = alphabet[r.source.Intn(len(alphabet))]
+	}
+	return string(buf)
+}
 
 func TestNewRCDSSetSync(t *testing.T) {
 	syncer, err := NewRCDSSetSync()

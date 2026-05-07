@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chunked file pull mode with SHA-256 verification and atomic destination replacement.
 - GitHub Pages project website under `docs/`.
 - CLI reference documentation.
+- GA readiness documentation covering blockers, execution order, and verification gates.
 - Unit, integration, and e2e coverage for CLI, file sync, algorithms, transport, set operations, and utility conversions.
 
 ### Changed
@@ -19,14 +20,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI uses Go 1.24 and runs the expanded package test suite.
 - E2E and integration workflows now fail when tests fail.
 - Deployment and architecture documentation now reflects the implemented CLI and file sync behavior.
+- Release tag automation now gates artifact builds behind formatting, vet, race, integration, e2e, govulncheck, and gosec checks.
 
 ### Fixed
 - Removed unresolved RCDS merge-conflict markers.
 - Hardened TCP framing, payload bounds, close behavior, and byte counters.
+- Added TCP operation deadlines for active set-sync sessions and wired CLI `--timeout` through set algorithms.
 - Replaced unsafe integer conversion helpers with stable big-endian encoding.
 - Made set key normalization nil-safe.
 - Made IBLT reject non-byte elements instead of panicking.
+- Made file manifest reconstruction reject chunks whose bytes do not match their declared hash.
+- Made unavailable crypto hash functions return errors instead of panicking.
+- Made invalid IBLT hash options fail during syncer construction.
+- Made IBLT parameter mismatches return explicit client and server errors.
+- Made IBLT skip unnecessary resync when initial decode succeeds with zero retries configured.
+- Made IBLT sync tests use dynamic ports and correct randomized symmetric-difference sizing.
+- Made set-sync listeners honor configured timeouts while waiting for the first client.
+- Made lower-level TCP connection construction reject negative timeouts.
+- Made content-dependent partitioning reject zero hash-space values.
+- Made set difference preserve values from the left-hand set.
+- Made set intersection preserve values from the left-hand set.
+- Made file sync reject manifests whose declared file size does not match reconstructed manifest bytes.
+- Made file sync reject negative chunk sizes before writing.
+- Reduced file chunk-read allocations by reusing the read buffer and pre-sizing chunk metadata when file size is known.
 - Applied log level validation before logger construction.
+- Removed runtime logrus usage, unused controller-runtime/zap logging dependencies, and the direct client-go retry dependency from runtime paths.
+- Removed the stale Travis CI release configuration so GitHub Actions is the release path of record.
 
 ## [0.2.0] - 2025-11-21
 

@@ -17,8 +17,8 @@ func New() *Set {
 func (s *Set) Difference(set *Set) *Set {
 	n := make(Set)
 
-	for k := range *s {
-		if v, exists := (*set)[k]; !exists {
+	for k, v := range *s {
+		if _, exists := (*set)[k]; !exists {
 			n[k] = v
 		}
 	}
@@ -63,9 +63,9 @@ func (s *Set) InsertKey(key interface{}) {
 func (s *Set) Intersection(otherSet *Set) *Set {
 	n := make(Set)
 
-	for k := range *s {
-		if val, exists := (*otherSet)[k]; exists {
-			n[k] = val
+	for k, v := range *s {
+		if _, exists := (*otherSet)[k]; exists {
+			n[k] = v
 		}
 	}
 

@@ -2,6 +2,8 @@
 
 This document lists all identified issues and improvements needed for the RCDS_GO project to reach MVP (Minimum Viable Product) status.
 
+> Status note: the CLI, file sync, integration tests, and e2e tests have advanced since this original MVP list was written. For the current GA release blocker list and production-readiness execution plan, use [`docs/GA_READINESS.md`](docs/GA_READINESS.md).
+
 ## 🔴 Critical Priority (Blocking MVP)
 
 ### Issue 1: Complete CLI Server/Client Implementation
@@ -113,21 +115,22 @@ sync:
 ## ⚠️ High Priority (Important for MVP Quality)
 
 ### Issue 4: Unify Logging Framework
-**Status:** Mixed usage of logrus and zap  
+**Status:** Runtime logrus usage removed; local logger now uses standard-library `slog`; structured logging still not wired end to end
 **Priority:** High  
 **Effort:** 1-2 days
 
 **Description:**
-The codebase currently uses both `logrus` and `zap` loggers inconsistently. This makes debugging difficult and creates dependency bloat.
+Runtime `logrus` calls and unused controller-runtime/zap logger dependencies have been removed from runtime paths, but logging is still not production-ready. The CLI and libraries need one structured logging path with consistent fields, configuration, and operational context.
 
 **Tasks:**
-- [ ] Choose one logging framework (recommendation: `zap` for performance)
+- [x] Choose one logging framework for the current code path (`slog`)
 - [ ] Create a central logger package
-- [ ] Replace all logrus calls with zap
+- [x] Remove runtime logrus calls from transport and sync algorithms
+- [ ] Wire all production log statements through one structured logger
 - [ ] Add structured logging with consistent fields
 - [ ] Support log level configuration
 - [ ] Add context-aware logging
-- [ ] Remove unused logging dependencies
+- [x] Remove unused logging dependencies
 
 **Acceptance Criteria:**
 - Only one logging framework in use

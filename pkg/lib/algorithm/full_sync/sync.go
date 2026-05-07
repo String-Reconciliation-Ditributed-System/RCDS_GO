@@ -2,11 +2,11 @@ package full_sync
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/lib/genSync"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/util"
-	"github.com/sirupsen/logrus"
 )
 
 type fullSync struct {
@@ -15,6 +15,7 @@ type fullSync struct {
 	FreezeLocal   bool
 	SentBytes     int
 	ReceivedBytes int
+	Timeout       time.Duration
 }
 
 func NewFullSetSync() (genSync.GenSync, error) {
@@ -33,6 +34,10 @@ func (f *fullSync) SetFreezeLocal(freezeLocal bool) {
 	f.FreezeLocal = freezeLocal
 }
 
+func (f *fullSync) SetTimeout(timeout time.Duration) {
+	f.Timeout = timeout
+}
+
 func (f *fullSync) AddElement(elem interface{}) error {
 	f.Set.InsertKey(elem)
 	return nil
@@ -48,7 +53,7 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 	// refresh additionals at each sync session.
 	f.additionals = set.New()
 
-	client, err := genSync.NewTcpConnection(ip, port)
+	client, err := genSync.NewTcpConnectionWithTimeout(ip, port, f.Timeout)
 	if err != nil {
 		return err
 	}
@@ -73,7 +78,6 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 		return err
 	}
 	if util.BytesToUint64(serverDigest) == digest {
-		logrus.Info("No sync operation necessary, local and remote digests are the same.")
 		_, err = client.Send([]byte{genSync.SYNC_SKIP})
 		if err != nil {
 			return err
@@ -97,7 +101,6 @@ func (f *fullSync) SyncClient(ip string, port int) error {
 		}
 	}
 	if f.FreezeLocal {
-		logrus.Info("Client is freezing local set and skipping set update.")
 		_, err = client.Send([]byte{genSync.SYNC_SKIP})
 		if err != nil {
 			return err
@@ -132,7 +135,7 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 	// refresh additionals at each sync session.
 	f.additionals = set.New()
 
-	server, err := genSync.NewTcpConnection(ip, port)
+	server, err := genSync.NewTcpConnectionWithTimeout(ip, port, f.Timeout)
 	if err != nil {
 		return err
 	}
@@ -163,7 +166,6 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 	}
 
 	if len(syncStatus) == 1 && syncStatus[0] == genSync.SYNC_SKIP {
-		logrus.Info("No sync operation necessary, local and remote digests are the same.")
 		return nil
 	}
 
@@ -188,8 +190,6 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 				return err
 			}
 		}
-	} else {
-		logrus.Info("Server is freezing local set and skipping set update.")
 	}
 
 	syncStatus, err = server.Receive()
@@ -197,7 +197,6 @@ func (f *fullSync) SyncServer(ip string, port int) error {
 		return err
 	}
 	if len(syncStatus) == 1 && syncStatus[0] == genSync.SYNC_SKIP {
-		logrus.Info("Client is freezing local, skipping the rest of the sync...")
 		return nil
 	}
 

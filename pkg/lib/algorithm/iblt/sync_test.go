@@ -3,15 +3,47 @@ package iblt
 import (
 	"crypto"
 	"encoding/binary"
+	mathrand "math/rand"
+	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/String-Reconciliation-Ditributed-System/RCDS_GO/pkg/set"
 )
+
+var rand = newTestRand()
+
+type testRand struct {
+	source *mathrand.Rand
+}
+
+func newTestRand() *testRand {
+	return &testRand{source: mathrand.New(mathrand.NewSource(1))}
+}
+
+func (r *testRand) Seed(seed int64) {
+	r.source.Seed(seed)
+}
+
+func (r *testRand) IntnRange(min, max int) int {
+	if max <= min {
+		return min
+	}
+	return min + r.source.Intn(max-min)
+}
+
+func (r *testRand) String(length int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	buf := make([]byte, length)
+	for i := range buf {
+		buf[i] = alphabet[r.source.Intn(len(alphabet))]
+	}
+	return string(buf)
+}
 
 func TestIBLTUsesFullChecksumInSerializedTables(t *testing.T) {
 	syncer, err := NewIBLTSetSync(WithSymmetricSetDiff(1), WithDataLen(4))
@@ -95,14 +127,15 @@ func TestWithDataLen(t *testing.T) {
 			expectedServerExtra.InsertKey(td)
 		}
 
+		port := freePort(t)
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 8080)
+			err := client.SyncServer("127.0.0.1", port)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
-		err = server.SyncClient("", 8080)
+		err = server.SyncClient("127.0.0.1", port)
 		assert.NoError(t, err)
 		wg.Wait()
 
@@ -123,6 +156,13 @@ func TestIBLTSyncRejectsNonByteElements(t *testing.T) {
 
 	assert.Error(t, syncer.AddElement("not bytes"))
 	assert.Error(t, syncer.DeleteElement("not bytes"))
+}
+
+func TestNewIBLTSetSyncRejectsInvalidHashFunc(t *testing.T) {
+	assert.NotPanics(t, func() {
+		_, err := NewIBLTSetSync(WithSymmetricSetDiff(1), WithHashFunc(crypto.Hash(0)))
+		assert.Error(t, err)
+	})
 }
 
 func TestWithHashFunc(t *testing.T) {
@@ -187,14 +227,15 @@ func TestWithHashFunc(t *testing.T) {
 			expectedSet.InsertKey(td)
 		}
 
+		port := freePort(t)
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.SyncServer("", 8080)
+			err := client.SyncServer("127.0.0.1", port)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
-		err = server.SyncClient("", 8080)
+		err = server.SyncClient("127.0.0.1", port)
 		assert.NoError(t, err)
 		wg.Wait()
 
@@ -205,8 +246,6 @@ func TestWithHashFunc(t *testing.T) {
 
 func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
 	rand.Seed(100)
-	port1 := 8080
-	port2 := 8081 // these can be different address. test only need ports for localhost.
 
 	tests := []struct {
 		serverSetSize    int
@@ -273,30 +312,32 @@ func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
 
 		var wg sync.WaitGroup
 		t.Log("syncing with client 1 in the first address")
+		port1 := freePort(t)
 		wg.Add(1)
 		go func() {
-			err := client1.SyncServer("", port1)
+			err := client1.SyncServer("127.0.0.1", port1)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
 		wg.Add(1)
 		go func() {
-			err = server.SyncClient("", port1)
+			err = server.SyncClient("127.0.0.1", port1)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
 		wg.Wait()
 
 		t.Log("syncing with client 2 in the second address")
+		port2 := freePort(t)
 		wg.Add(1)
 		go func() {
-			err := client2.SyncServer("", port2)
+			err := client2.SyncServer("127.0.0.1", port2)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
 		wg.Add(1)
 		go func() {
-			err = server.SyncClient("", port2)
+			err = server.SyncClient("127.0.0.1", port2)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -307,168 +348,201 @@ func TestNewIBLTSetSyncWithDifferentDestinations(t *testing.T) {
 	}
 }
 
+func TestIBLTSyncParameterMismatchReturnsErrors(t *testing.T) {
+	server, err := NewIBLTSetSync(WithSymmetricSetDiff(1), WithDataLen(4))
+	require.NoError(t, err)
+	client, err := NewIBLTSetSync(WithSymmetricSetDiff(2), WithDataLen(4))
+	require.NoError(t, err)
+
+	require.NoError(t, server.AddElement([]byte("srvr")))
+	require.NoError(t, client.AddElement([]byte("clnt")))
+
+	port := freePort(t)
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.SyncServer("127.0.0.1", port)
+	}()
+
+	clientErr := client.SyncClient("127.0.0.1", port)
+	require.Error(t, clientErr)
+	assert.Contains(t, clientErr.Error(), "IBLT parameter mismatch")
+
+	select {
+	case err := <-serverErr:
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "IBLT parameter mismatch")
+	case <-time.After(2 * time.Second):
+		t.Fatal("server did not return after parameter mismatch")
+	}
+}
+
 func TestIbltSync_SuccessRate(t *testing.T) {
 	samples := 10
-	concurrency := 5
 	maxSetSize := 1000
 	maxElementSize := 1000
 	failed := 0
-	var swg sync.WaitGroup
-	var mutex = &sync.Mutex{}
-	for i := 0; i < concurrency; i++ {
-		swg.Add(1)
-		go func(index int) {
-			index *= samples / concurrency
-			for j := 0; j < samples/concurrency; j++ {
-				index++
-				rand.Seed(int64(index))
-				dataLen := rand.IntnRange(1, maxElementSize)
-				serverSetSize := rand.IntnRange(0, maxSetSize)
-				clientSetSize := rand.IntnRange(0, maxSetSize)
-				intersectionSize := rand.IntnRange(0, func() int {
-					if serverSetSize == 0 || clientSetSize == 0 {
-						return 1
-					}
-					if serverSetSize > clientSetSize {
-						return clientSetSize
-					}
-					return serverSetSize
-				}())
-				diffNum := serverSetSize - intersectionSize
-				diffNum += serverSetSize - intersectionSize
-
-				server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
-				require.NoError(t, err)
-
-				client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
-				require.NoError(t, err)
-
-				expectedSet := set.New()
-				for i := 0; i < intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = server.AddElement(td)
-					require.NoError(t, err)
-					err = client.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				for i := 0; i < clientSetSize-intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = client.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				for i := 0; i < serverSetSize-intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = server.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					client.SyncServer("", 8080+index)
-					wg.Done()
-				}()
-				server.SyncClient("", 8080+index)
-				wg.Wait()
-				diff := server.GetLocalSet().Difference(client.GetLocalSet())
-				if diff.Len() != 0 {
-					mutex.Lock()
-					failed++
-					mutex.Unlock()
-				}
+	for index := 1; index <= samples; index++ {
+		rand.Seed(int64(index))
+		dataLen := rand.IntnRange(1, maxElementSize)
+		serverSetSize := rand.IntnRange(0, maxSetSize)
+		clientSetSize := rand.IntnRange(0, maxSetSize)
+		intersectionSize := rand.IntnRange(0, func() int {
+			if serverSetSize == 0 || clientSetSize == 0 {
+				return 1
 			}
-			swg.Done()
-		}(i)
+			if serverSetSize > clientSetSize {
+				return clientSetSize
+			}
+			return serverSetSize
+		}())
+		diffNum := serverSetSize - intersectionSize
+		diffNum += clientSetSize - intersectionSize
+		if diffNum == 0 {
+			diffNum = 1
+		}
+
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
+		require.NoError(t, err)
+
+		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen))
+		require.NoError(t, err)
+
+		expectedSet := set.New()
+		for i := 0; i < intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < clientSetSize-intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < serverSetSize-intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		if !syncIBLTPairForSuccessRate(t, server, client) {
+			failed++
+			continue
+		}
+		diff := server.GetLocalSet().Difference(client.GetLocalSet())
+		if diff.Len() != 0 {
+			failed++
+		}
 	}
-	swg.Wait()
 	t.Logf("IBLT success rate is %v", float32(samples-failed)/float32(samples))
 }
 
 func TestIbltSync_SuccessRateWithRetries(t *testing.T) {
 	samples := 10
-	concurrency := 10
 	maxSetSize := 1000
 	maxElementSize := 1000
 	retries := 5
 	failed := 0
-	var swg sync.WaitGroup
-	var mutex = &sync.Mutex{}
-	for i := 0; i < concurrency; i++ {
-		swg.Add(1)
-		go func(index int) {
-			index *= samples / concurrency
-			for j := 0; j < samples/concurrency; j++ {
-				index++
-				rand.Seed(int64(index))
-				dataLen := rand.IntnRange(1, maxElementSize)
-				serverSetSize := rand.IntnRange(0, maxSetSize)
-				clientSetSize := rand.IntnRange(0, maxSetSize)
-				intersectionSize := rand.IntnRange(0, func() int {
-					if serverSetSize == 0 || clientSetSize == 0 {
-						return 1
-					}
-					if serverSetSize > clientSetSize {
-						return clientSetSize
-					}
-					return serverSetSize
-				}())
-				diffNum := serverSetSize - intersectionSize
-				diffNum += serverSetSize - intersectionSize
-
-				server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen), WithMaxSyncRetries(retries))
-				require.NoError(t, err)
-
-				client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen), WithMaxSyncRetries(retries))
-				require.NoError(t, err)
-
-				expectedSet := set.New()
-				for i := 0; i < intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = server.AddElement(td)
-					require.NoError(t, err)
-					err = client.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				for i := 0; i < clientSetSize-intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = client.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				for i := 0; i < serverSetSize-intersectionSize; i++ {
-					td := []byte(rand.String(dataLen))
-					err = server.AddElement(td)
-					require.NoError(t, err)
-					expectedSet.InsertKey(td)
-				}
-
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					client.SyncServer("", 8080+index)
-					wg.Done()
-				}()
-				server.SyncClient("", 8080+index)
-				wg.Wait()
-				diff := server.GetLocalSet().Difference(client.GetLocalSet())
-				if diff.Len() != 0 {
-					t.Logf("Sync failed with %d difference.", diff.Len())
-					mutex.Lock()
-					failed++
-					mutex.Unlock()
-				}
+	for index := 1; index <= samples; index++ {
+		rand.Seed(int64(index))
+		dataLen := rand.IntnRange(1, maxElementSize)
+		serverSetSize := rand.IntnRange(0, maxSetSize)
+		clientSetSize := rand.IntnRange(0, maxSetSize)
+		intersectionSize := rand.IntnRange(0, func() int {
+			if serverSetSize == 0 || clientSetSize == 0 {
+				return 1
 			}
-			swg.Done()
-		}(i)
+			if serverSetSize > clientSetSize {
+				return clientSetSize
+			}
+			return serverSetSize
+		}())
+		diffNum := serverSetSize - intersectionSize
+		diffNum += clientSetSize - intersectionSize
+		if diffNum == 0 {
+			diffNum = 1
+		}
+
+		server, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen), WithMaxSyncRetries(retries))
+		require.NoError(t, err)
+
+		client, err := NewIBLTSetSync(WithSymmetricSetDiff(diffNum), WithDataLen(dataLen), WithMaxSyncRetries(retries))
+		require.NoError(t, err)
+
+		expectedSet := set.New()
+		for i := 0; i < intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < clientSetSize-intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = client.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		for i := 0; i < serverSetSize-intersectionSize; i++ {
+			td := []byte(rand.String(dataLen))
+			err = server.AddElement(td)
+			require.NoError(t, err)
+			expectedSet.InsertKey(td)
+		}
+
+		if !syncIBLTPairForSuccessRate(t, server, client) {
+			failed++
+			continue
+		}
+		diff := server.GetLocalSet().Difference(client.GetLocalSet())
+		if diff.Len() != 0 {
+			t.Logf("Sync failed with %d difference.", diff.Len())
+			failed++
+		}
 	}
-	swg.Wait()
 	t.Logf("IBLT success rate with %d retries is %v", retries, float32(samples-failed)/float32(samples))
+}
+
+func syncIBLTPairForSuccessRate(t *testing.T, server, client interface {
+	SyncClient(string, int) error
+	SyncServer(string, int) error
+}) bool {
+	t.Helper()
+
+	port := freePort(t)
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- client.SyncServer("127.0.0.1", port)
+	}()
+	clientErr := server.SyncClient("127.0.0.1", port)
+	var remoteErr error
+	select {
+	case remoteErr = <-serverErr:
+	case <-time.After(5 * time.Second):
+		t.Log("sync server did not return")
+		return false
+	}
+	if clientErr != nil || remoteErr != nil {
+		t.Logf("sync transport failed: client=%v server=%v", clientErr, remoteErr)
+		return false
+	}
+	return true
+}
+
+func freePort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port
 }
